@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
 import { Carousel } from 'react-responsive-carousel';
 import "react-responsive-carousel/lib/styles/carousel.min.css";
 import './App.css';
@@ -24,7 +25,6 @@ function App() {
         const savedUser = localStorage.getItem('user');
         return savedUser ? JSON.parse(savedUser) : null;
     });
-    const [isRegistering, setIsRegistering] = useState(false);
     const [guestAskCount, setGuestAskCount] = useState(0);
     const [setIsEditing] = useState(false);
     const [editData, setEditData] = useState({ fullName: '', dob: '', sex: '' });
@@ -354,7 +354,13 @@ function App() {
                         Mừng chủ nhân đã về! Tôi là <strong>Fellua</strong> – Quản gia của cửa hàng này. Tôi có thể giúp gì cho chủ nhân hôm nay?
                     </div>
                     {messages.map((m, i) => (
-                        <div key={i} className={`message ${m.role}`}>{m.text}</div>
+                        <div key={i} className={`message ${m.role}`}>
+                            {m.role === 'bot' ? (
+                                <ReactMarkdown>{m.text}</ReactMarkdown> 
+                            ) : (
+                                m.text
+                            )}
+                        </div>
                     ))}
                 </div>
                 <div className="input-area">

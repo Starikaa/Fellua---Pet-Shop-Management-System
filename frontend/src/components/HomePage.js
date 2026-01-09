@@ -1,5 +1,13 @@
-﻿function HomePage({ products, categories, onProductClick, onCategorySelect, activeCategory }) {
+﻿import React, { useState } from 'react';
 
+function HomePage({ products, categories, onProductClick, onCategorySelect, activeCategory }) {
+    // 1. Đưa useState vào TRONG hàm component
+    const [searchTerm, setSearchTerm] = useState('');
+
+    // 2. Logic lọc sản phẩm (nếu muốn dùng thanh tìm kiếm)
+    const filteredProducts = products.filter(p =>
+        p.product_name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
     return (
         <div className="home-container">
             <section className="categories-grid">
@@ -21,14 +29,25 @@
                     ))}
                 </div>
             </section>
+            <div className="search-box" style={{ display: 'flex', justifyContent: 'center', margin: '20px 0' }}>
+                <input
+                    type="text"
+                    className="search-input"
+                    placeholder="Tìm kiếm sản phẩm..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
 
             <section className="product-list-section">
                 <h2 className="section-title">
-                    {activeCategory ? `Sản phẩm cho ${categories.find(c => c.id === activeCategory)?.name}` : "Sản phẩm nổi bật"}
+                    {activeCategory
+                        ? `Sản phẩm cho ${categories.find(c => c.category_id === activeCategory)?.category_name}`
+                        : "Sản phẩm nổi bật"}
                 </h2>
                 <div className="grid">
-                    {products.length > 0 ? (
-                        products.map(product => (
+                    {filteredProducts.length > 0 ? (
+                        filteredProducts.map(product => (
                             <div className="card" key={product.product_id} onClick={() => onProductClick(product)}>
                                 <div className="product-img" style={{ position: 'relative' }}>
                                     {product.discount_amount > 0 && (

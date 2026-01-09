@@ -1,8 +1,9 @@
-﻿const express = require('express');
+﻿require('dotenv').config();
+const express = require('express');
 const sql = require('mssql');
-const { GoogleGenAI } = require("@google/genai");
+const { GoogleGenerativeAI } = require("@google/generative-ai"); 
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const cors = require('cors');
-require('dotenv').config();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cloudinary = require('cloudinary').v2;
@@ -23,9 +24,9 @@ const dbConfig = {
 };
 
 cloudinary.config({
-    cloud_name: 'dzipisbon',
-    api_key: '885293945594758',
-    api_secret: '0HIHiK_J_H4ockYERk5pGNCQHkY'
+    cloud_name: '',
+    api_key: '',
+    api_secret: ''
 });
 
 const storage = new CloudinaryStorage({
@@ -880,7 +881,6 @@ app.get('/api/admin/reports/:month/:year', async (req, res) => {
 app.post('/api/chat', async (req, res) => {
     try {
         const { message, userId, role, messageCount } = req.body;
-        const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY);
         let pool = await sql.connect(dbConfig);
 
         if (!userId && messageCount >= 1) {
@@ -902,14 +902,13 @@ app.post('/api/chat', async (req, res) => {
             }
         }
 
-        const prompt = `Bạn là trợ lý ảo của Pet Shop Fellua. Hãy trả lời thân thiện về thú cưng. Câu hỏi: ${message}`;
-        const result = await genAI.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
+        const model = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash", 
+            systemInstruction: "Bạn là quản gia Fellua. Bạn CHỈ được phép trả lời các câu hỏi liên quan đến thú cưng, chăm sóc thú cưng và các sản phẩm của cửa hàng Fellua. Nếu khách hỏi về lập trình (Python, Java...), chính trị, hoặc các chủ đề không liên quan, hãy lịch sự từ chối và mời họ hỏi về thú cưng. Nếu khách hỏi những câu dạng như cửa hàng của mình có... không thì mời khách tra cứu trong mục tìm kiếm"
         });
-        const response = result.text; 
+        const result = await model.generateContent(message);
+        const response = result.response.text();
 
-        // Phần lưu database giữ nguyên như cũ
         await pool.request()
             .input('userId', sql.Int, userId || null)
             .input('question', sql.NVarChar(sql.MAX), message)
@@ -918,7 +917,7 @@ app.post('/api/chat', async (req, res) => {
 
         res.json({ reply: response });
     } catch (err) {
-        console.error(err); // In lỗi ra terminal để dễ kiểm tra
+        console.error(err); 
         res.status(500).json({ error: err.message });
     }
 });
