@@ -115,23 +115,22 @@ INSERT INTO Role (role_id, role_status) VALUES
 INSERT INTO [User] (role_id, full_name, email, password, status)
 VALUES ('ADM', N'Quản trị viên trưởng', 'admin@fellua.com', 'lmao', 'Active');
 
-SELECT * FROM [User]
-SELECT * FROM Product
-SELECT * FROM PCC_Campaign
-
-
-SELECT category_id, category_name, category_icon FROM Category
-DELETE FROM PCC_Campaign WHERE campaign_id  = 'TOY'
-
-DELETE FROM PCC_Campaign
-
-
 INSERT INTO Category (category_id, category_name) VALUES  
-('ACC', N'Phụ kiện & Đồ dùng'), ('CAT', N'Mèo'), 
-('BIRD', N'Chim'), ('HAM', N'Chuột'), 
-('DOG', N'Chó'), ('FISH', N'Cá'), 
-('RAB', N'Thỏ'), ('REP', N'Bò sát');
+('ACC', N'Phụ kiện & Đồ dùng', N'🦴'), ('CAT', N'Mèo', N'🐱'), 
+('BIRD', N'Chim', N'🐦'), ('HAM', N'Chuột', N'🐹'), 
+('DOG', N'Chó', N'🐶'), ('FISH', N'Cá', N'🐟'), 
+('RAB', N'Thỏ', N'🐰'), ('REP', N'Bò sát', N'🦎');
 GO
+
+SELECT * FROM Category
+UPDATE Category SET category_icon = N'🐱' WHERE category_id = 'CAT';
+UPDATE Category SET category_icon = N'🐦' WHERE category_id = 'BIRD';
+UPDATE Category SET category_icon = N'🐹' WHERE category_id = 'HAM';
+UPDATE Category SET category_icon = N'🦴' WHERE category_id = 'ACC';
+UPDATE Category SET category_icon = N'🐟' WHERE category_id = 'FISH';
+UPDATE Category SET category_icon = N'🐰' WHERE category_id = 'RAB';
+UPDATE Category SET category_icon = N'🦎' WHERE category_id = 'REP';
+
 
 
 INSERT INTO Product (category_id, product_name, price, num_product, detail_product, image_url) VALUES 
@@ -148,6 +147,7 @@ INSERT INTO Product (category_id, product_name, price, num_product, detail_produ
 
 GO
 INSERT INTO Product (category_id, product_name, price, num_product, detail_product, image_url) VALUES 
+
 -- 1. NHÓM CHÓ (DOG)
 ('DOG', N'Chó Husky Siberian', 8000000, 5, N'Mắt xanh, năng động, thích hợp gia đình có sân vườn.', 'https://res.cloudinary.com/dzipisbon/image/upload/v1767541368/t%E1%BA%A3i_xu%E1%BB%91ng_ihx386.jpg'),
 ('DOG', N'Chó Phốc Sóc (Pomeranian)', 5500000, 8, N'Nhỏ nhắn, lông xù, thông minh và quấn chủ.', 'https://res.cloudinary.com/dzipisbon/image/upload/v1767541420/t%E1%BA%A3i_xu%E1%BB%91ng_1_fzrtvr.jpg'),
@@ -196,20 +196,4 @@ BEGIN
     AND CAST(chat_time AS DATE) = CAST(GETDATE() AS DATE);
     RETURN @count;
 END;
-GO
-
-ALTER TABLE Category 
-ADD category_icon NVARCHAR(50);
-GO
-
-UPDATE Category SET category_icon = N'🐶' WHERE category_id = 'DOG';
-UPDATE Category SET category_icon = N'🐱' WHERE category_id = 'CAT';
-UPDATE Category SET category_icon = N'🐦' WHERE category_id = 'BIRD';
-UPDATE Category SET category_icon = N'🐹' WHERE category_id = 'HAM';
-UPDATE Category SET category_icon = N'🦴' WHERE category_id = 'ACC';
-UPDATE Category SET category_icon = N'🐟' WHERE category_id = 'FISH';
-UPDATE Category SET category_icon = N'🐰' WHERE category_id = 'RAB';
-UPDATE Category SET category_icon = N'🦎' WHERE category_id = 'REP';
-ALTER TABLE PCC_Campaign 
-ADD banner_url NVARCHAR(MAX);
 GO

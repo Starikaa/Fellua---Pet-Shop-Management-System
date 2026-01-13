@@ -92,6 +92,13 @@ app.put('/api/admin/users/status', async (req, res) => {
     const { userId, status } = req.body;
     try {
         let pool = await sql.connect(dbConfig);
+        const checkAdmin = await pool.request()
+            .input('uid', sql.Int, userId)
+            .query('SELECT role_id FROM [User] WHERE user_id = @uid');
+
+        if (checkAdmin.recordset[0]?.role_id === 'ADM') {
+            return res.status(403).json({ error: "Không thể thay đổi trạng thái của tài khoản Quản trị viên!" });
+        }
         await pool.request()
             .input('userId', sql.Int, userId)
             .input('status', sql.NVarChar, status)
@@ -104,7 +111,20 @@ app.put('/api/admin/users/status', async (req, res) => {
 app.put('/api/admin/users/role', async (req, res) => {
     const { userId, roleId } = req.body;
     try {
+        if (roleId === 'ADM') {
+            return res.status(403).json({ error: "Việc cấp quyền Quản trị viên mới bị nghiêm cấm!" });
+        }
+
         let pool = await sql.connect(dbConfig);
+
+        // KIỂM TRA: Không cho phép hạ quyền Admin hiện có
+        const checkAdmin = await pool.request()
+            .input('uid', sql.Int, userId)
+            .query('SELECT role_id FROM [User] WHERE user_id = @uid');
+
+        if (checkAdmin.recordset[0]?.role_id === 'ADM') {
+            return res.status(403).json({ error: "Không thể thay đổi quyền hạn của tài khoản Quản trị viên!" });
+        }
         await pool.request()
             .input('userId', sql.Int, userId)
             .input('roleId', sql.NVarChar, roleId)

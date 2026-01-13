@@ -55,10 +55,10 @@ function UserManagement({ user, onBack }) {
                             <td>{u.full_name}</td>
                             <td>{u.email}</td>
                             <td>
-                                <select value={u.role_id} onChange={(e) => handleChangeRole(u.user_id, e.target.value)}>
+                                <select value={u.role_id} onChange={(e) => handleChangeRole(u.user_id, e.target.value)} disabled={u.role_id === 'ADM'}>
                                     <option value="CUS">Khách hàng</option>
                                     <option value="STA">Nhân viên</option>
-                                    <option value="ADM">Admin</option>
+                                    <option value="ADM">Quản trị viên</option>
                                 </select>
                             </td>
                             <td>
@@ -67,9 +67,13 @@ function UserManagement({ user, onBack }) {
                                 </span>
                             </td>
                             <td>
-                                <button className="toggle-btn" onClick={() => handleToggleStatus(u.user_id, u.status)}>
-                                    {u.status === 'Active' ? 'Khóa' : 'Mở khóa'}
-                                </button>
+                                {u.role_id !== 'ADM' ? (
+                                    <button className="toggle-btn" onClick={() => handleToggleStatus(u.user_id, u.status)}>
+                                        {u.status === 'Active' ? 'Khóa' : 'Mở khóa'}
+                                    </button>
+                                ) : (
+                                    <span style={{ fontSize: '12px', color: '#888' }}>Hệ thống bảo vệ</span>
+                                )}
                             </td>
                         </tr>
                     ))}
