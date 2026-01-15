@@ -24,9 +24,9 @@ const dbConfig = {
 };
 
 cloudinary.config({
-    cloud_name: 'dzipisbon',
-    api_key: '885293945594758',
-    api_secret: '0HIHiK_J_H4ockYERk5pGNCQHkY'
+    cloud_name: '',
+    api_key: '',
+    api_secret: ''
 });
 
 const storage = new CloudinaryStorage({
