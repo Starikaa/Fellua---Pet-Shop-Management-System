@@ -32,7 +32,9 @@ function ProfilePage({ user, setUser, onLogout, onBack }) {
 
                 <div className="profile-avatar-section">
                     <div className="avatar-circle">{user.fullName.charAt(0)}</div>
-                    <p className="user-role-badge">{user.role === 'ADM' ? 'Quản trị viên' : 'Khách hàng'}</p>
+                    <p className="user-role-badge">
+                        {user.role === 'ADM' ? 'Quản trị viên' : user.role === 'STA' ? 'Nhân viên' : 'Khách hàng'}
+                    </p>
                 </div>
 
                 <div className="profile-form">

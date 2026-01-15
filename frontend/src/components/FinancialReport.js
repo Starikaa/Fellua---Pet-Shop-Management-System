@@ -4,10 +4,12 @@ import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-
+import ReactMarkdown from 'react-markdown';
 function FinancialReport({ onBack }) {
     const [reportData, setReportData] = useState(null);
     const currentYear = new Date().getFullYear();
+    const [aiAnalysis, setAiAnalysis] = useState('');
+    const [loadingAI, setLoadingAI] = useState(false);
     const [dateFilter, setDateFilter] = useState({
         month: new Date().getMonth() + 1,
         year: currentYear
@@ -37,6 +39,20 @@ function FinancialReport({ onBack }) {
         doc.save(`Bao_cao_Fellua_${dateFilter.month}_${dateFilter.year}.pdf`);
     };
 
+    const handleGetAIAnalysis = async () => {
+        setLoadingAI(true);
+        try {
+            const res = await axios.get('http://localhost:5000/api/admin/ai-report');
+            setAiAnalysis(res.data.analysis);
+        } catch (err) {
+            alert("Không thể kết nối với trí tuệ nhân tạo Fellua lúc này.");
+        } finally {
+            setLoadingAI(false);
+        }
+    };
+
+    if (!reportData) return <div className="loading">Đang tổng hợp dữ liệu...</div>;
+
     return (
         <div className="admin-management-container">
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px' }}>
@@ -56,7 +72,53 @@ function FinancialReport({ onBack }) {
                 </div>
             </div>
 
-            <h2>Báo cáo tài chính & Biến động hệ thống</h2>
+            <h2>Báo cáo Tài chính & Chiến lược AI</h2>
+
+            <div className="ai-trigger-section" style={{
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                padding: '30px',
+                borderRadius: '20px',
+                color: 'white',
+                marginBottom: '30px',
+                boxShadow: '0 10px 20px rgba(0,0,0,0.1)'
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                        <h3 style={{ margin: 0 }}>🤖 Trợ lý Phân tích Chiến lược Fellua</h3>
+                        <p style={{ margin: '10px 0 0 0', opacity: 0.9 }}>AI sẽ phân tích Doanh thu, Quảng cáo và Feedback khách hàng để đưa ra lời khuyên.</p>
+                    </div>
+                    <button
+                        onClick={handleGetAIAnalysis}
+                        disabled={loadingAI}
+                        style={{
+                            background: '#f39c12',
+                            color: 'white',
+                            border: 'none',
+                            padding: '12px 25px',
+                            borderRadius: '12px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        {loadingAI ? 'Đang phân tích...' : '✨ Chạy phân tích AI'}
+                    </button>
+                </div>
+
+                {aiAnalysis && (
+                    <div className="ai-result-box" style={{
+                        marginTop: '25px',
+                        background: 'rgba(255,255,255,0.95)', 
+                        padding: '25px',
+                        borderRadius: '15px',
+                        lineHeight: '1.8',
+                        color: '#2c3e50', 
+                        boxShadow: 'inset 0 2px 10px rgba(0,0,0,0.1)',
+                        textAlign: 'left'
+                    }}>
+                        <ReactMarkdown>{aiAnalysis}</ReactMarkdown>
+                    </div>
+                )}
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', margin: '20px 0' }}>
                 <div className="report-card" style={{ background: '#fff5e6', padding: '20px', borderRadius: '15px' }}>

@@ -1113,3 +1113,21 @@ body {
         color: #bdc3c7;
         font-weight: 300;
     }
+.ai-result-box strong {
+    color: #e67e22; 
+    font-weight: bold;
+}
+
+.ai-result-box ul {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+
+.ai-result-box li {
+    margin-bottom: 8px;
+}
+
+.ai-result-box h1, .ai-result-box h2, .ai-result-box h3 {
+    margin-top: 20px;
+    color: #2980b9;
+}

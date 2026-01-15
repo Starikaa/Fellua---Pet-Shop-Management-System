@@ -24,9 +24,9 @@ const dbConfig = {
 };
 
 cloudinary.config({
-    cloud_name: '',
-    api_key: '',
-    api_secret: ''
+    cloud_name: 'dzipisbon',
+    api_key: '885293945594758',
+    api_secret: '0HIHiK_J_H4ockYERk5pGNCQHkY'
 });
 
 const storage = new CloudinaryStorage({
@@ -874,7 +874,7 @@ app.get('/api/admin/reports/:month/:year', async (req, res) => {
             .query(`
                 SELECT DAY(order_date) as day, SUM(total_price) as dailyRevenue, COUNT(order_id) as orderCount
                 FROM [Order]
-                WHERE MONTH(order_date) = @m AND YEAR(order_date) = @y AND status_order != N'Đã hủy'
+                WHERE MONTH(order_date) = @m AND YEAR(order_date) = @y AND status_order = N'Giao hàng thành công'
                 GROUP BY DAY(order_date)
                 ORDER BY day
             `);
@@ -921,10 +921,47 @@ app.post('/api/chat', async (req, res) => {
                 });
             }
         }
+        const productsResult = await pool.request().query(`
+            SELECT 
+                p.product_name, 
+                p.price, 
+                p.num_product, 
+                p.detail_product, 
+                c.category_name,
+                pcc.cost_per_click AS discount_amount,
+                pcc.status AS pcc_status,
+                -- Tính toán số suất ưu đãi còn lại dựa trên ngân sách và số lượt đã dùng
+                FLOOR((pcc.budget - (pcc.num_of_clicks * pcc.cost_per_click)) / pcc.cost_per_click) AS remaining_discount_qty
+            FROM Product p 
+            JOIN Category c ON p.category_id = c.category_id 
+            LEFT JOIN PCC_Campaign pcc ON p.product_id = pcc.product_id AND pcc.status = 'Active'
+            WHERE p.num_product > 0
+        `);
+
+        const productContext = productsResult.recordset.map(p => {
+            let info = `- ${p.product_name} (${p.category_name}): `;
+            info += `Trong kho còn: ${p.num_product} sản phẩm. `; 
+
+            if (p.pcc_status === 'Active' && p.remaining_discount_qty > 0) {
+                const originalPrice = p.price + p.discount_amount;
+                info += `🔥 ĐANG GIẢM GIÁ MẠNH! Giá ưu đãi: ${p.price.toLocaleString()}đ (Giá cũ: ${originalPrice.toLocaleString()}đ). `;
+                info += `CẢNH BÁO: Chỉ còn đúng ${p.remaining_discount_qty} suất giá rẻ cuối cùng! `; 
+            } else {
+                info += `Giá bán: ${p.price.toLocaleString()}đ. `;
+            }
+            return info + `Mô tả: ${p.detail_product}`;
+        }).join('\n');
 
         const model = genAI.getGenerativeModel({
             model: "gemini-2.5-flash", 
-            systemInstruction: "Bạn là quản gia Fellua. Bạn CHỈ được phép trả lời các câu hỏi liên quan đến thú cưng, chăm sóc thú cưng và các sản phẩm của cửa hàng Fellua. Nếu khách hỏi về lập trình (Python, Java...), chính trị, hoặc các chủ đề không liên quan, hãy lịch sự từ chối và mời họ hỏi về thú cưng. Nếu khách hỏi những câu dạng như cửa hàng của mình có... không thì mời khách tra cứu trong mục tìm kiếm"
+            systemInstruction: `Bạn là Fellua - Quản gia thông minh của cửa hàng thú cưng Fellua. 
+            Nhiệm vụ:
+                - Tư vấn chăm sóc thú cưng tận tâm và sâu sắc.
+                - Sử dụng danh sách sản phẩm thực tế cùng với chiến dịch giảm giá của cửa hàng dưới đây để gợi ý cho khách: ${ productContext }
+                - Nếu khách hàng hỏi về chủ đề không liên quan, hãy lịch sự từ chối và hướng họ quay lại chủ đề thú cưng và sản phẩm cửa hàng.
+                - Nếu khách hỏi sản phẩm không có trong danh sách, hãy khéo léo từ chối và gợi ý sản phẩm tương tự.
+                - Tự xưng là 'Fellua' và gọi người dùng là 'Chủ nhân'.
+                - Nếu khách hỏi về đơn hàng, hãy nhắc họ kiểm tra mục 'Lịch sử mua hàng'.`
         });
         const result = await model.generateContent(message);
         const response = result.response.text();
@@ -939,6 +976,82 @@ app.post('/api/chat', async (req, res) => {
     } catch (err) {
         console.error(err); 
         res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/admin/ai-report', async (req, res) => {
+    try {
+        let pool = await sql.connect(dbConfig);
+
+        // 1. Lấy báo cáo doanh thu theo tháng
+        const revenueResult = await pool.request().query(`
+            SELECT 
+                MONTH(order_date) as month, 
+                SUM(total_price) as monthly_revenue,
+                COUNT(order_id) as total_orders
+            FROM [Order]
+            WHERE status_order = N'Giao hàng thành công'
+            GROUP BY MONTH(order_date)
+            ORDER BY month DESC
+        `);
+
+        // 2. Lấy tình trạng các chiến dịch PCC (giảm giá/quảng cáo)
+        const pccResult = await pool.request().query(`
+            SELECT 
+                pcc.campaign_name, 
+                p.product_name, 
+                pcc.budget, 
+                pcc.num_of_clicks,
+                (pcc.num_of_clicks * pcc.cost_per_click) as spent
+            FROM PCC_Campaign pcc
+            JOIN Product p ON pcc.product_id = p.product_id
+            WHERE pcc.status = 'Active'
+        `);
+
+        // 3. Lấy đánh giá của khách hàng
+        const feedbackResult = await pool.request().query(`
+            SELECT f.content, f.rating, p.product_name, f.feedback_date
+            FROM Feedback f 
+            JOIN Product p ON f.product_id = p.product_id
+            WHERE f.feedback_date >= DATEADD(day, -7, GETDATE()) -- Chỉ lấy feedback 1 tuần qua
+            ORDER BY f.feedback_date DESC
+`);
+
+        // Chuẩn bị dữ liệu thô cho AI
+        const reportData = {
+            revenue: revenueResult.recordset,
+            campaigns: pccResult.recordset,
+            feedbacks: feedbackResult.recordset
+        };
+
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        const prompt = `Bạn là một chuyên gia phân tích dữ liệu kinh doanh cao cấp. Hãy dựa vào số liệu thực tế sau đây từ cửa hàng thú cưng Fellua để viết một báo cáo tóm tắt cho chủ cửa hàng:
+
+        DỮ LIỆU DOANH THU:
+        ${JSON.stringify(reportData.revenue)}
+
+        CHIẾN DỊCH QUẢNG CÁO & GIẢM GIÁ (PCC):
+        ${JSON.stringify(reportData.campaigns)}
+
+        PHẢN HỒI GẦN ĐÂY CỦA KHÁCH HÀNG:
+        ${JSON.stringify(reportData.feedbacks)}
+
+        YÊU CẦU BÁO CÁO:
+        1. Tóm tắt tình hình doanh thu (tăng trưởng hay sụt giảm).
+        2. Đánh giá hiệu quả các chiến dịch quảng cáo (chiến dịch nào đang hiệu quả, chiến dịch nào lãng phí ngân sách).
+        3. Phân tích tâm trạng khách hàng qua feedback.
+        4. Đưa ra lời khuyên cụ thể để tăng doanh số trong tháng tới.
+        Hãy trình bày bằng tiếng Việt, giọng văn chuyên nghiệp, súc tích.`;
+
+        const result = await model.generateContent(prompt);
+        const analysisText = result.response.text();
+
+        res.json({ analysis: analysisText });
+
+    } catch (error) {
+        console.error("Lỗi báo cáo AI:", error);
+        res.status(500).json({ error: "Fellua không thể tổng hợp báo cáo lúc này." });
     }
 });
 

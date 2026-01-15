@@ -28,7 +28,7 @@ function UserManagement({ user, onBack }) {
         try {
             await axios.put(`http://localhost:5000/api/admin/users/role`, { userId, roleId: newRole });
             fetchUsers(); // C15: Cập nhật lại giao diện [cite: 200]
-        } catch (err) { alert("Lỗi khi chuyển quyền"); }
+        } catch (err) { alert(err.response?.data?.error); }
     };
 
     return (
