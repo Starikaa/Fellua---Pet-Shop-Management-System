@@ -24,9 +24,9 @@ const dbConfig = {
 };
 
 cloudinary.config({
-    cloud_name: '',
-    api_key: '',
-    api_secret: ''
+    cloud_name: 'CLOUDINARY_CLOUD_NAME',
+    api_key: 'CLOUDINARY_API_KEY',
+    api_secret: 'CLOUDINARY_API_SECRET'
 });
 
 const storage = new CloudinaryStorage({
