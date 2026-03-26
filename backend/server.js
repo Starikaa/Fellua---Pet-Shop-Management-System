@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql2/promise');
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { GoogleGenerativeAI } = require("@google/generative-ai"); 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const cors = require('cors');
 const bcrypt = require('bcrypt');
