@@ -369,34 +369,47 @@ app.put('/api/admin/categories/:id', async (req, res) => {
 
 app.post('/api/admin/ppc', upload.single('banner'), async (req, res) => {
     try {
-        const creatorId = Number(req.body.creatorId);
-        const productId = Number(req.body.productId);
-        const budget = Number(req.body.budget);
-        const cpc = Number(req.body.cpc);
-        const { campaignName } = req.body;
-        
-        // Link ảnh từ Cloudinary
-        const imageUrl = req.file ? req.file.path : null;
+        // 1. Lấy và ép kiểu dữ liệu
+        const creatorId = parseInt(req.body.creatorId);
+        const productId = parseInt(req.body.productId);
+        const budget = parseFloat(req.body.budget);
+        const cpc = parseFloat(req.body.cpc);
+        const campaignName = req.body.campaignName;
+        const imageUrl = req.file ? req.file.path : (req.body.banner_url || null);
 
-        console.log("Đang tạo chiến dịch cho SP ID:", productId);
+        // 2. Validate dữ liệu trước khi nạp vào DB
+        if (isNaN(creatorId) || isNaN(productId)) {
+            return res.status(400).json({ error: `ID không hợp lệ: Creator=${req.body.creatorId}, Product=${req.body.productId}` });
+        }
 
-        // Chèn vào bảng PCC_Campaign
-        await pool.execute(
+        console.log(`🚀 Đang tạo PPC cho SP ${productId} bởi Admin ${creatorId}`);
+
+        // 3. Thực hiện INSERT 
+        const [result] = await pool.execute(
             `INSERT INTO PCC_Campaign (creator_id, product_id, campaign_name, budget, cost_per_click, banner_url, status, num_of_clicks)
              VALUES (?, ?, ?, ?, ?, ?, 'Active', 0)`,
             [creatorId, productId, campaignName, budget, cpc, imageUrl]
         );
 
-        // Cập nhật giảm giá sản phẩm
-        await pool.execute(
+        // 4. Cập nhật giảm giá sản phẩm 
+        const [updateRes] = await pool.execute(
             'UPDATE Product SET price = price - ? WHERE product_id = ?', 
             [cpc, productId]
         );
 
-        res.json({ message: "Kích hoạt quảng cáo thành công!", imageUrl });
+        console.log("Tạo chiến dịch thành công!");
+        res.json({ message: "Kích hoạt quảng cáo thành công!", campaignId: result.insertId });
+
     } catch (err) { 
-        console.error("LỖI PPC POST:", err.message);
-        res.status(500).json({ error: err.message }); 
+        console.error("LỖI SQL PPC CHI TIẾT:");
+        console.error("- Message:", err.message);
+        console.error("- Code:", err.code);
+        
+        res.status(500).json({ 
+            error: "Lỗi hệ thống", 
+            detail: err.message,
+            sqlCode: err.code 
+        }); 
     }
 });
 
