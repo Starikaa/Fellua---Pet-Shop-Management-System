@@ -116,8 +116,11 @@ function PPCManagement({ user, onBack }) {
                         <form onSubmit={handleCreatePPC} className="auth-form-content">
                             <div className="input-group">
                                 <label>Tên chiến dịch</label>
-                                value={formData.name}
-                                <input required onChange={e => setFormData({ ...formData, name: e.target.value })} />
+                                <input 
+                                    required 
+                                    value={formData.name || ''} 
+                                    onChange={e => setFormData({ ...formData, name: e.target.value })} 
+                                />
                             </div>
                             <div className="input-group">
                                 <label>Mã sản phẩm quảng cáo & giảm giá</label>
