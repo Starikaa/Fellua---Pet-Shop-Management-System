@@ -61,17 +61,6 @@ const storage = new CloudinaryStorage({
     }
 });
 
-const fetchOrders = async () => {
-    try {
-        const res = await axios.get('http://localhost:5000/api/admin/orders');
-        console.log("Dữ liệu nhận được:", res.data);
-        setOrders(res.data);
-    } catch (err) {
-        console.error("Chi tiết lỗi:", err);
-        alert("Lỗi tải danh sách đơn hàng");
-    }
-};
-
 const upload = multer({ storage: storage });
 
 // API Thêm sản phẩm mới kèm ảnh (C10)
@@ -166,76 +155,20 @@ app.delete('/api/admin/products/:id', async (req, res) => {
 // Sửa thông tin sản phẩm (C10)
 app.put('/api/admin/products/:id', upload.single('image'), async (req, res) => {
     try {
-        const { productName, price, numProduct, detailProduct, categoryId } = req.body;
-        const productId = req.params.id;
-        let imageUrl = req.body.imageUrl; // Giữ lại ảnh cũ nếu không up ảnh mới
-
-        if (req.file) {
-            imageUrl = req.file.path; // Lấy link ảnh mới từ Cloudinary nếu có
-        }
-
-        let pool = await sql.connect(dbConfig);
-        await pool.request()
-            .input('id', sql.Int, productId)
-            .input('catId', sql.NVarChar, categoryId)
-            .input('name', sql.NVarChar, productName)
-            .input('price', sql.Decimal, price)
-            .input('num', sql.Int, numProduct)
-            .input('img', sql.NVarChar, imageUrl)
-            .input('detail', sql.NVarChar, detailProduct)
-            .query(`
-                UPDATE Product 
-                SET product_name = @name, 
-                    price = @price, 
-                    num_product = @num, 
-                    image_url = @img, 
-                    detail_product = @detail,
-                    category_id = @catId
-                WHERE product_id = @id
-            `);
-
-        res.json({ message: "Cập nhật sản phẩm thành công!", imageUrl });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Sửa thông tin sản phẩm
-app.put('/api/admin/products/:id', upload.single('image'), async (req, res) => {
-    try {
         const productId = req.params.id;
         const { productName, price, numProduct, detailProduct, categoryId } = req.body;
-
-        // Logic xử lý ảnh: Nếu có file mới thì lấy path Cloudinary, nếu không giữ ảnh cũ gửi từ body
         let imageUrl = req.body.imageUrl;
-        if (req.file) {
-            imageUrl = req.file.path;
-        }
+        if (req.file) imageUrl = req.file.path;
 
-        let pool = await sql.connect(dbConfig);
-        await pool.request()
-            .input('id', sql.Int, productId)
-            .input('catId', sql.NVarChar, categoryId)
-            .input('name', sql.NVarChar, productName)
-            .input('price', sql.Decimal, price)
-            .input('num', sql.Int, numProduct)
-            .input('img', sql.NVarChar, imageUrl)
-            .input('detail', sql.NVarChar, detailProduct)
-            .query(`
-                UPDATE Product 
-                SET product_name = @name, 
-                    price = @price, 
-                    num_product = @num, 
-                    image_url = @img, 
-                    detail_product = @detail,
-                    category_id = @catId
-                WHERE product_id = @id
-            `);
-
+        await pool.execute(
+            `UPDATE Product 
+             SET product_name = ?, price = ?, num_product = ?, image_url = ?, detail_product = ?, category_id = ?
+             WHERE product_id = ?`,
+            [productName, price, numProduct, imageUrl, detailProduct, categoryId, productId]
+        );
         res.json({ message: "Cập nhật thành công!", imageUrl });
     } catch (err) {
-        console.error("Lỗi Backend:", err.message);
-        res.status(500).json({ error: "Lỗi máy chủ khi cập nhật sản phẩm" });
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -290,28 +223,6 @@ app.post('/api/orders', async (req, res) => {
     }
 });
 
-// Thêm vào trong ProductDetail component
-const handleOrder = async () => {
-    if (!user) {
-        alert("Quý khách vui lòng đăng nhập để đặt hàng nhé!");
-        return;
-    }
-    try {
-        await axios.post('http://localhost:5000/api/orders', {
-            userId: user.user_id,
-            productId: product.product_id,
-            quantity: quantity,
-            totalPrice: product.price
-        });
-        await pool.request()
-            .input('pid', sql.Int, productId)
-            .input('qty', sql.Int, quantity)
-            .query('UPDATE Product SET num_product = num_product - @qty WHERE product_id = @pid');
-        alert("Đặt hàng thành công!");
-        onBack();
-    } catch (err) { alert("Lỗi khi đặt hàng!"); }
-};
-
 // Lấy danh sách tất cả đơn hàng cho nhân viên
 app.get('/api/admin/orders', async (req, res) => {
     try {
@@ -332,52 +243,30 @@ app.get('/api/admin/orders', async (req, res) => {
 app.put('/api/admin/orders/status', async (req, res) => {
     try {
         const { orderId, newStatus } = req.body;
-        let pool = await sql.connect(dbConfig);
-        await pool.request()
-            .input('id', sql.Int, orderId)
-            .input('status', sql.NVarChar, newStatus)
-            .query('UPDATE Orders SET status_order = @status WHERE order_id = @id');
+        await pool.execute('UPDATE Orders SET status_order = ? WHERE order_id = ?', [newStatus, orderId]);
         res.json({ message: "Cập nhật trạng thái thành công" });
-    } catch (err) {
-        res.status(500).send(err.message);
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Lấy lịch sử đơn hàng của 1 khách hàng (C08)
 app.get('/api/orders/user/:userId', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
-        let result = await pool.request()
-            .input('userId', sql.Int, req.params.userId)
-            .query(`
-                SELECT 
-                    o.order_id, 
-                    o.order_date, 
-                    o.total_price, 
-                    o.status_order, 
-                    oi.num_per_prod, 
-                    p.product_name, 
-                    p.product_id 
-                FROM Orders o
-                JOIN Order_Item oi ON o.order_id = oi.order_id
-                JOIN Product p ON oi.product_id = p.product_id
-                WHERE o.user_id = @userId
-                ORDER BY o.order_date DESC
-            `);
-        res.json(result.recordset);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        const [rows] = await pool.execute(`
+            SELECT o.order_id, o.order_date, o.total_price, o.status_order, 
+                   oi.num_per_prod, p.product_name, p.product_id 
+            FROM Orders o
+            JOIN Order_Item oi ON o.order_id = oi.order_id
+            JOIN Product p ON oi.product_id = p.product_id
+            WHERE o.user_id = ?
+            ORDER BY o.order_date DESC`, [req.params.userId]);
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/chat/guest/clear', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
-        await pool.request()
-            .query('DELETE FROM Chat_History WHERE user_id IS NULL');
+        await pool.execute('DELETE FROM Chat_History WHERE user_id IS NULL');
         res.json({ message: "Đã dọn dẹp lịch sử Guest" });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/login', async (req, res) => {
@@ -412,44 +301,28 @@ app.post('/api/register', async (req, res) => {
 });
 app.get('/api/admin/ppc', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
-        let result = await pool.request().query("SELECT * FROM PCC_Campaign ORDER BY campaign_id DESC");
-        res.json(result.recordset);
+        const [rows] = await pool.execute("SELECT * FROM PCC_Campaign ORDER BY campaign_id DESC");
+        res.json(rows); 
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/admin/ppc/:id', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
         const campaignId = req.params.id;
+        const [checkCp] = await pool.execute(
+            "SELECT product_id, cost_per_click, status FROM PCC_Campaign WHERE campaign_id = ?", 
+            [campaignId]
+        );
 
-        // 1. Lấy thông tin trạng thái và giá trị click của chiến dịch
-        const checkCp = await pool.request()
-            .input('cid', sql.Int, campaignId)
-            .query("SELECT product_id, cost_per_click, status FROM PCC_Campaign WHERE campaign_id = @cid");
-
-        if (checkCp.recordset.length > 0) {
-            const { product_id, cost_per_click, status } = checkCp.recordset[0];
-
-            // 2. CHỈ CỘNG LẠI GIÁ NẾU CHIẾN DỊCH ĐANG ACTIVE
-            // Nếu status là 'Ended', nghĩa là giá đã được khôi phục khi hết ngân sách
+        if (checkCp.length > 0) {
+            const { product_id, cost_per_click, status } = checkCp[0];
             if (status === 'Active') {
-                await pool.request()
-                    .input('pid', sql.Int, product_id)
-                    .input('cpc', sql.Decimal, cost_per_click)
-                    .query("UPDATE Product SET price = price + @cpc WHERE product_id = @pid");
+                await pool.execute("UPDATE Product SET price = price + ? WHERE product_id = ?", [cost_per_click, product_id]);
             }
         }
-
-        // 3. Thực hiện xóa chiến dịch khỏi Database
-        await pool.request()
-            .input('cid', sql.Int, campaignId)
-            .query("DELETE FROM PCC_Campaign WHERE campaign_id = @cid");
-
-        res.json({ message: "Đã dọn dẹp chiến dịch thành công!" });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        await pool.execute("DELETE FROM PCC_Campaign WHERE campaign_id = ?", [campaignId]);
+        res.json({ message: "Đã xóa chiến dịch thành công!" });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/feedback/product/:id', async (req, res) => {
@@ -487,53 +360,30 @@ app.post('/api/admin/categories', async (req, res) => {
 app.put('/api/admin/categories/:id', async (req, res) => {
     try {
         const { categoryName, categoryIcon } = req.body;
-        const catId = req.params.id;
-        let pool = await sql.connect(dbConfig);
-
-        await pool.request()
-            .input('id', sql.NVarChar, catId)
-            .input('name', sql.NVarChar, categoryName)
-            .input('icon', sql.NVarChar, categoryIcon)
-            .query(`
-                UPDATE Category 
-                SET category_name = @name, category_icon = @icon 
-                WHERE category_id = @id
-            `);
-
+        await pool.execute(
+            'UPDATE Category SET category_name = ?, category_icon = ? WHERE category_id = ?',
+            [categoryName, categoryIcon, req.params.id]
+        );
         res.json({ message: "Cập nhật danh mục thành công!" });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/admin/ppc', upload.single('banner'), async (req, res) => {
     try {
         const { creatorId, campaignName, budget, cpc, productId } = req.body;
-        // Lấy link ảnh từ Cloudinary sau khi upload thành công
         const imageUrl = req.file ? req.file.path : null;
 
-        let pool = await sql.connect(dbConfig);
+        // 1. Lưu chiến dịch
+        await pool.execute(
+            `INSERT INTO PCC_Campaign (creator_id, product_id, campaign_name, budget, cost_per_click, banner_url, status, num_of_clicks)
+             VALUES (?, ?, ?, ?, ?, ?, 'Active', 0)`,
+            [creatorId, productId, campaignName, budget, cpc, imageUrl]
+        );
 
-        // 1. Lưu chiến dịch (Sửa imageUrl đúng với biến đã khai báo)
-        await pool.request()
-            .input('uid', sql.Int, creatorId)
-            .input('pid', sql.Int, productId)
-            .input('name', sql.NVarChar, campaignName)
-            .input('budget', sql.Decimal(18, 2), budget)
-            .input('cpc', sql.Decimal(18, 2), cpc)
-            .input('banner', sql.NVarChar(sql.MAX), imageUrl) // Đã sửa từ banner thành imageUrl
-            .query(`
-                INSERT INTO PCC_Campaign (creator_id, product_id, campaign_name, budget, cost_per_click, banner_url, status, num_of_clicks)
-                VALUES (@uid, @pid, @name, @budget, @cpc, @banner, 'Active', 0)
-            `);
+        // 2. Giảm giá sản phẩm
+        await pool.execute('UPDATE Product SET price = price - ? WHERE product_id = ?', [cpc, productId]);
 
-        // 2. Tự động giảm giá trực tiếp vào bảng Product
-        await pool.request()
-            .input('pid', sql.Int, productId)
-            .input('discount', sql.Decimal(18, 2), cpc)
-            .query('UPDATE Product SET price = price - @discount WHERE product_id = @pid');
-
-        res.json({ message: "Kích hoạt quảng cáo và giảm giá thành công!" });
+        res.json({ message: "Kích hoạt quảng cáo thành công!" });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -544,24 +394,23 @@ app.put('/api/admin/ppc/:id', upload.single('banner'), async (req, res) => {
         const campaignId = req.params.id;
         const nNewBudget = Number(budget);
 
-        let pool = await sql.connect(dbConfig);
+        // 1. Lấy dữ liệu hiện tại để kiểm tra bằng pool.execute
+        const [oldRows] = await pool.execute(
+            `SELECT ppc.status, p.product_id, p.price, ppc.cost_per_click, ppc.num_of_clicks 
+             FROM PCC_Campaign ppc 
+             JOIN Product p ON ppc.product_id = p.product_id 
+             WHERE ppc.campaign_id = ?`, 
+            [campaignId]
+        );
 
-        // 1. Lấy dữ liệu hiện tại để kiểm tra
-        const oldData = await pool.request()
-            .input('cid', sql.Int, campaignId)
-            .query(`SELECT status, p.product_id, p.price, ppc.cost_per_click, ppc.num_of_clicks 
-                    FROM PCC_Campaign ppc 
-                    JOIN Product p ON ppc.product_id = p.product_id 
-                    WHERE ppc.campaign_id = @cid`);
-
-        if (oldData.recordset.length > 0) {
+        if (oldRows.length > 0) {
             const {
                 status: oldStatus,
                 product_id,
                 price: currentPrice,
                 cost_per_click: oldCPC,
                 num_of_clicks
-            } = oldData.recordset[0];
+            } = oldRows[0];
 
             // TÍNH TOÁN SỐ TIỀN ĐÃ TIÊU
             const spent = num_of_clicks * oldCPC;
@@ -575,7 +424,7 @@ app.put('/api/admin/ppc/:id', upload.single('banner'), async (req, res) => {
                 }
             }
 
-            // Logic tính toán lại giá sản phẩm (Giữ nguyên hoặc tối ưu)
+            // Logic tính toán lại giá sản phẩm (GIỮ NGUYÊN NHƯ CODE GỐC CỦA CHIẾN)
             let nPrice = Number(currentPrice);
             let nOldCPC = Number(oldCPC);
 
@@ -587,41 +436,37 @@ app.put('/api/admin/ppc/:id', upload.single('banner'), async (req, res) => {
                 nPrice = nPrice + nOldCPC - nNewCPC;
             }
 
+            // Cập nhật lại giá sản phẩm nếu có thay đổi
             if (!isNaN(nPrice) && nPrice !== Number(currentPrice)) {
-                await pool.request()
-                    .input('pid', sql.Int, product_id)
-                    .input('price', sql.Decimal(18, 2), nPrice)
-                    .query("UPDATE Product SET price = @price WHERE product_id = @pid");
+                await pool.execute(
+                    "UPDATE Product SET price = ? WHERE product_id = ?", 
+                    [nPrice, product_id]
+                );
             }
         }
 
-        // 2. Cập nhật thông tin chiến dịch vào Database
+        // 2. Cập nhật thông tin chiến dịch
         let bannerUrl = req.body.banner_url;
         if (req.file) bannerUrl = req.file.path;
 
-        await pool.request()
-            .input('id', sql.Int, campaignId)
-            .input('name', sql.NVarChar, campaign_name)
-            .input('budget', sql.Decimal, nNewBudget)
-            .input('status', sql.NVarChar, status)
-            .input('cpc', sql.Decimal, nNewCPC)
-            .input('url', sql.VarChar, bannerUrl)
-            .query(`UPDATE PCC_Campaign SET campaign_name = @name, budget = @budget, 
-                    status = @status, cost_per_click = @cpc, banner_url = @url 
-                    WHERE campaign_id = @id`);
+        await pool.execute(
+            `UPDATE PCC_Campaign 
+             SET campaign_name = ?, budget = ?, status = ?, cost_per_click = ?, banner_url = ? 
+             WHERE campaign_id = ?`,
+            [campaign_name, nNewBudget, status, nNewCPC, bannerUrl, campaignId]
+        );
 
         res.json({ message: "Cập nhật và kích hoạt chiến dịch thành công!" });
     } catch (err) {
+        console.error("Lỗi PPC Update:", err.message);
         res.status(500).json({ error: "Lỗi hệ thống: " + err.message });
     }
 });
+
 app.get('/api/ppc/active', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
-        // Lấy tất cả các chiến dịch đang Active
-        let result = await pool.request()
-            .query("SELECT * FROM PCC_Campaign WHERE status = 'Active' ORDER BY campaign_id DESC");
-        res.json(result.recordset);
+        const [rows] = await pool.execute("SELECT * FROM PCC_Campaign WHERE status = 'Active' ORDER BY campaign_id DESC");
+        res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -691,36 +536,23 @@ app.get('/api/products/:id', async (req, res) => {
 app.get('/api/admin/reports/:month/:year', async (req, res) => {
     try {
         const { month, year } = req.params;
-        let pool = await sql.connect(dbConfig);
+        const [revenueRows] = await pool.execute(`
+            SELECT DAY(order_date) as day, SUM(total_price) as dailyRevenue, COUNT(order_id) as orderCount
+            FROM Orders
+            WHERE MONTH(order_date) = ? AND YEAR(order_date) = ? AND status_order = 'Giao hàng thành công'
+            GROUP BY DAY(order_date) ORDER BY day`, [month, year]);
 
-        // 1. Thống kê doanh thu và số đơn hàng theo ngày trong tháng
-        const revenueRes = await pool.request()
-            .input('m', sql.Int, month)
-            .input('y', sql.Int, year)
-            .query(`
-                SELECT DAY(order_date) as day, SUM(total_price) as dailyRevenue, COUNT(order_id) as orderCount
-                FROM Orders
-                WHERE MONTH(order_date) = @m AND YEAR(order_date) = @y AND status_order = N'Giao hàng thành công'
-                GROUP BY DAY(order_date)
-                ORDER BY day
-            `);
-
-        // 2. Thống kê hiệu quả quảng cáo PPC (Chi phí và lượt mua)
-        const ppcRes = await pool.request()
-            .query(`
-                SELECT campaign_name, budget, (num_of_clicks * cost_per_click) as spent, num_of_clicks as conversions
-                FROM PCC_Campaign
-            `);
+        const [ppcRows] = await pool.execute(`
+            SELECT campaign_name, budget, (num_of_clicks * cost_per_click) as spent, num_of_clicks as conversions
+            FROM PCC_Campaign`);
 
         res.json({
-            dailyStats: revenueRes.recordset,
-            ppcStats: ppcRes.recordset,
-            totalRevenue: revenueRes.recordset.reduce((sum, item) => sum + item.dailyRevenue, 0),
-            totalOrders: revenueRes.recordset.reduce((sum, item) => sum + item.orderCount, 0)
+            dailyStats: revenueRows,
+            ppcStats: ppcRows,
+            totalRevenue: revenueRows.reduce((sum, item) => sum + Number(item.dailyRevenue), 0),
+            totalOrders: revenueRows.reduce((sum, item) => sum + item.orderCount, 0)
         });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Route cho Chatbot Gemini
