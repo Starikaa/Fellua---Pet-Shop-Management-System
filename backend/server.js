@@ -390,7 +390,7 @@ app.post('/api/admin/ppc', upload.single('banner'), async (req, res) => {
             [creatorId, productId, campaignName, budget, cpc, imageUrl]
         );
 
-        // 2. Giảm giá sản phẩm (Logic đặc trưng của Chiến)
+        // 2. Giảm giá sản phẩm 
         await pool.execute('UPDATE Product SET price = price - ? WHERE product_id = ?', [cpc, productId]);
 
         res.json({ message: "Kích hoạt quảng cáo thành công!", imageUrl });
