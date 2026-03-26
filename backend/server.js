@@ -109,20 +109,13 @@ app.put('/api/admin/users/role', async (req, res) => {
             return res.status(403).json({ error: "Việc cấp quyền Quản trị viên mới bị nghiêm cấm!" });
         }
 
-        let pool = await sql.connect(dbConfig);
-
         // KIỂM TRA: Không cho phép hạ quyền Admin hiện có
-        const checkAdmin = await pool.request()
-            .input('uid', sql.Int, userId)
-            .query('SELECT role_id FROM Users WHERE user_id = @uid');
+        const checkAdmin = await pool.execute('UPDATE Users SET role_id = ? WHERE user_id = ?', [roleId, userId]);
 
         if (checkAdmin.recordset[0]?.role_id === 'ADM') {
             return res.status(403).json({ error: "Không thể thay đổi quyền hạn của tài khoản Quản trị viên!" });
         }
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('roleId', sql.NVarChar, roleId)
-            .query('UPDATE Users SET role_id = @roleId WHERE user_id = @userId');
+        await pool.execute('UPDATE Users SET role_id = @roleId WHERE user_id = ?', [userID]);
         res.json({ message: "Cập nhật quyền thành công" });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -130,7 +123,6 @@ app.put('/api/admin/users/role', async (req, res) => {
 app.put('/api/user/update', async (req, res) => {
     try {
         const { userId, fullName, dob, sex } = req.body;
-        let pool = await sql.connect(dbConfig);
 
         await pool.request()
             .input('userId', sql.Int, userId)
@@ -156,9 +148,7 @@ app.delete('/api/admin/products/:id', async (req, res) => {
         const productId = req.params.id;
 
         // 1. Kiểm tra xem sản phẩm có đang trong chiến dịch quảng cáo không
-        const ppcCheck = await pool.request()
-            .input('id', sql.Int, productId)
-            .query('SELECT campaign_id FROM PCC_Campaign WHERE product_id = @id');
+        const ppcCheck = await pool.execute('SELECT campaign_id FROM PCC_Campaign WHERE product_id = ?', [productId]);
 
         if (ppcCheck.recordset.length > 0) {
             return res.status(400).json({
@@ -167,9 +157,7 @@ app.delete('/api/admin/products/:id', async (req, res) => {
         }
 
         // 2. Kiểm tra xem sản phẩm đã có đơn hàng chưa
-        const orderCheck = await pool.request()
-            .input('id', sql.Int, productId)
-            .query('SELECT order_id FROM Order_Item WHERE product_id = @id');
+        const orderCheck = await pool.execute('SELECT order_id FROM Order_Item WHERE product_id = ?', [productId]);
 
         if (orderCheck.recordset.length > 0) {
             return res.status(400).json({
@@ -178,9 +166,7 @@ app.delete('/api/admin/products/:id', async (req, res) => {
         }
 
         // 3. Nếu không vướng ràng buộc nào, thực hiện xóa
-        await pool.request()
-            .input('id', sql.Int, productId)
-            .query('DELETE FROM Product WHERE product_id = @id');
+        await pool.execute('DELETE FROM Product WHERE product_id = ?', [productId]);
 
         res.json({ message: "Đã xóa sản phẩm thành công!" });
     } catch (err) {
@@ -220,18 +206,6 @@ app.put('/api/admin/products/:id', upload.single('image'), async (req, res) => {
             `);
 
         res.json({ message: "Cập nhật sản phẩm thành công!", imageUrl });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.delete('/api/admin/products/:id', async (req, res) => {
-    try {
-        let pool = await sql.connect(dbConfig);
-        await pool.request()
-            .input('id', sql.Int, req.params.id)
-            .query('DELETE FROM Product WHERE product_id = @id');
-        res.json({ message: "Đã xóa sản phẩm thành công!" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -287,16 +261,7 @@ app.post('/api/feedback', async (req, res) => {
         }
 
         let pool = await sql.connect(dbConfig);
-        await pool.request()
-            .input('uid', sql.Int, userId)
-            .input('pid', sql.Int, productId)
-            .input('content', sql.NVarChar, content)
-            .input('rating', sql.Decimal(2, 1), rating)
-            .query(`
-                INSERT INTO Feedback (user_id, product_id, content, rating, feedback_date)
-                VALUES (@uid, @pid, @content, @rating, CURRENT_TIMESTAMP)
-            `);
-
+        await pool.execute('INSERT INTO Feedback (user_id, product_id, content, rating, feedback_date) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)', [userId, productId, content, rating]);
         res.json({ message: "Gửi đánh giá thành công!" });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -361,8 +326,7 @@ const handleOrder = async () => {
 // Lấy danh sách tất cả đơn hàng cho nhân viên
 app.get('/api/admin/orders', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
-        let result = await pool.request().query(`
+        const [rows] = await pool.execute(`
             SELECT o.order_id, o.order_date, o.total_price, o.status_order, 
                    u.full_name, p.product_name, oi.num_per_prod
             FROM Orders o
@@ -371,7 +335,7 @@ app.get('/api/admin/orders', async (req, res) => {
             JOIN Product p ON oi.product_id = p.product_id
             ORDER BY o.order_date DESC
         `);
-        res.json(result.recordset);
+        res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
