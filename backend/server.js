@@ -342,7 +342,6 @@ app.get('/api/feedback/product/:id', async (req, res) => {
 
 app.get('/api/categories', async (req, res) => {
     try {
-        console.log('lmao')
         const [rows] = await pool.execute('SELECT category_id, category_name, category_icon FROM Category');
         res.json(rows);
     } catch (err) {
