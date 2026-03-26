@@ -19,14 +19,14 @@ function OrderManagement({ onBack }) {
 
     const fetchOrders = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/admin/orders');
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/admin/orders`);
             setOrders(res.data);
         } catch (err) { alert("Lỗi tải danh sách đơn hàng"); }
     };
 
     const handleStatusChange = async (orderId, currentStatus, newStatus) => {
         try {
-            await axios.put('http://localhost:5000/api/admin/orders/status', {
+            await axios.put(`${process.env.REACT_APP_API_URL}/api/admin/orders/status`, {
                 orderId: orderId,
                 newStatus: newStatus
             });
