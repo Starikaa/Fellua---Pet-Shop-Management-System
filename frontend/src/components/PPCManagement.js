@@ -32,22 +32,29 @@ function PPCManagement({ user, onBack }) {
     const handleCreatePPC = async (e) => {
     e.preventDefault();
     
-    const dataJSON = {
-        creatorId: Number(user.user_id),
-        productId: Number(formData.productId),
-        campaignName: formData.name,
-        budget: Number(formData.budget),
-        cpc: Number(formData.cpc)
-    };
+    if (!user?.user_id) {
+        alert("Lỗi: Không tìm thấy phiên đăng nhập Admin!");
+        return;
+    }
+
+    const data = new FormData();
+    data.append('creatorId', user.user_id);
+    data.append('campaignName', formData.name);
+    data.append('budget', formData.budget);
+    data.append('cpc', formData.cpc);
+    data.append('productId', formData.productId);
+    data.append('banner', formData.banner); 
 
     try {
-        await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/ppc`, dataJSON);
+        await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/ppc`, data, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
 
         alert("Tạo chiến dịch thành công!");
         setShowAddForm(false); 
         fetchCampaigns();
     } catch (err) {
-        alert("Lỗi: " + (err.response?.data?.error || "Lỗi kết nối"));
+        alert("Lỗi: " + (err.response?.data?.error || "Không thể tải ảnh lên Cloudinary"));
     }
 };
 
