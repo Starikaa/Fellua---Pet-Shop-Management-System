@@ -1063,7 +1063,6 @@ app.get('/api/admin/ai-report', async (req, res) => {
 });
 
 require('dotenv').config();
-const express = require('express');
 const sql = require('mysql2/promise');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
