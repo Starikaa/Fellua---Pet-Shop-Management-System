@@ -114,7 +114,7 @@ app.put('/api/admin/users/role', async (req, res) => {
         // KIỂM TRA: Không cho phép hạ quyền Admin hiện có
         const checkAdmin = await pool.request()
             .input('uid', sql.Int, userId)
-            .query('SELECT role_id FROM [User] WHERE user_id = @uid');
+            .query('SELECT role_id FROM Users WHERE user_id = @uid');
 
         if (checkAdmin.recordset[0]?.role_id === 'ADM') {
             return res.status(403).json({ error: "Không thể thay đổi quyền hạn của tài khoản Quản trị viên!" });
@@ -122,7 +122,7 @@ app.put('/api/admin/users/role', async (req, res) => {
         await pool.request()
             .input('userId', sql.Int, userId)
             .input('roleId', sql.NVarChar, roleId)
-            .query('UPDATE [User] SET role_id = @roleId WHERE user_id = @userId');
+            .query('UPDATE Users SET role_id = @roleId WHERE user_id = @userId');
         res.json({ message: "Cập nhật quyền thành công" });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -138,7 +138,7 @@ app.put('/api/user/update', async (req, res) => {
             .input('dob', sql.Date, dob)
             .input('sex', sql.Char, sex)
             .query(`
-                UPDATE [User] 
+                UPDATE Users 
                 SET full_name = @fullName, date_of_birth = @dob, sex = @sex 
                 WHERE user_id = @userId
             `);
@@ -294,7 +294,7 @@ app.post('/api/feedback', async (req, res) => {
             .input('rating', sql.Decimal(2, 1), rating)
             .query(`
                 INSERT INTO Feedback (user_id, product_id, content, rating, feedback_date)
-                VALUES (@uid, @pid, @content, @rating, GETDATE())
+                VALUES (@uid, @pid, @content, @rating, CURRENT_TIMESTAMP)
             `);
 
         res.json({ message: "Gửi đánh giá thành công!" });
@@ -365,8 +365,8 @@ app.get('/api/admin/orders', async (req, res) => {
         let result = await pool.request().query(`
             SELECT o.order_id, o.order_date, o.total_price, o.status_order, 
                    u.full_name, p.product_name, oi.num_per_prod
-            FROM [Order] o
-            JOIN [User] u ON o.user_id = u.user_id
+            FROM Orders o
+            JOIN Users u ON o.user_id = u.user_id
             JOIN Order_Item oi ON o.order_id = oi.order_id
             JOIN Product p ON oi.product_id = p.product_id
             ORDER BY o.order_date DESC
@@ -383,7 +383,7 @@ app.put('/api/admin/orders/status', async (req, res) => {
         await pool.request()
             .input('id', sql.Int, orderId)
             .input('status', sql.NVarChar, newStatus)
-            .query('UPDATE [Order] SET status_order = @status WHERE order_id = @id');
+            .query('UPDATE Orders SET status_order = @status WHERE order_id = @id');
         res.json({ message: "Cập nhật trạng thái thành công" });
     } catch (err) {
         res.status(500).send(err.message);
@@ -405,7 +405,7 @@ app.get('/api/orders/user/:userId', async (req, res) => {
                     oi.num_per_prod, 
                     p.product_name, 
                     p.product_id 
-                FROM [Order] o
+                FROM Orders o
                 JOIN Order_Item oi ON o.order_id = oi.order_id
                 JOIN Product p ON oi.product_id = p.product_id
                 WHERE o.user_id = @userId
@@ -689,7 +689,7 @@ app.put('/api/orders/cancel/:id', async (req, res) => {
             .input('oid', sql.Int, orderId)
             .query(`
                 SELECT oi.product_id, oi.num_per_prod, o.status_order 
-                FROM [Order] o
+                FROM Orders o
                 JOIN Order_Item oi ON o.order_id = oi.order_id
                 WHERE o.order_id = @oid
             `);
@@ -712,7 +712,7 @@ app.put('/api/orders/cancel/:id', async (req, res) => {
             // Cập nhật trạng thái đơn hàng thành 'Đã hủy'
             await transaction.request()
                 .input('oid', sql.Int, orderId)
-                .query("UPDATE [Order] SET status_order = N'Đã hủy' WHERE order_id = @oid");
+                .query("UPDATE Orders SET status_order = N'Đã hủy' WHERE order_id = @oid");
 
             // Cộng lại số lượng sản phẩm vào kho (num_per_prod lấy từ Order_Item)
             await transaction.request()
@@ -799,7 +799,7 @@ app.get('/api/admin/reports/:month/:year', async (req, res) => {
             .input('y', sql.Int, year)
             .query(`
                 SELECT DAY(order_date) as day, SUM(total_price) as dailyRevenue, COUNT(order_id) as orderCount
-                FROM [Order]
+                FROM Orders
                 WHERE MONTH(order_date) = @m AND YEAR(order_date) = @y AND status_order = N'Giao hàng thành công'
                 GROUP BY DAY(order_date)
                 ORDER BY day
@@ -911,8 +911,8 @@ app.get('/api/admin/ai-report', async (req, res) => {
                 MONTH(order_date) as month, 
                 SUM(total_price) as monthly_revenue,
                 COUNT(order_id) as total_orders
-            FROM [Order]
-            WHERE status_order = N'Giao hàng thành công' AND order_date >= DATEADD(month, -3, GETDATE())
+            FROM Orders
+            WHERE status_order = N'Giao hàng thành công' AND order_date >= DATEADD(month, -3, CURRENT_TIMESTAMP)
             GROUP BY MONTH(order_date)
             ORDER BY month DESC
         `);
@@ -935,7 +935,7 @@ app.get('/api/admin/ai-report', async (req, res) => {
             SELECT f.content, f.rating, p.product_name, f.feedback_date
             FROM Feedback f 
             JOIN Product p ON f.product_id = p.product_id
-            WHERE f.feedback_date >= DATEADD(day, -7, GETDATE()) -- Chỉ lấy feedback 1 tuần qua
+            WHERE f.feedback_date >= DATEADD(day, -7, CURRENT_TIMESTAMP) -- Chỉ lấy feedback 1 tuần qua
             ORDER BY f.feedback_date DESC
 `);
 
