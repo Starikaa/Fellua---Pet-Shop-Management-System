@@ -14,7 +14,7 @@ function OrderHistory({ user, onBack }) {
     useEffect(() => {
         const fetchOrders = async () => {
             try {
-                const res = await axios.get(`http://localhost:5000/api/orders/user/${user.user_id}`);
+                const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/orders/user/${user.user_id}`);
                 setOrders(res.data);
             } catch (err) { console.error("Lỗi tải đơn hàng"); }
         };
@@ -36,7 +36,7 @@ function OrderHistory({ user, onBack }) {
         }
 
         try {
-            await axios.post('http://localhost:5000/api/feedback', {
+            await axios.post(`${process.env.REACT_APP_API_URL}/api/feedback`, {
                 userId: user.user_id,
                 productId: selectedProd.product_id, // Truyền mã sản phẩm vào đây
                 content: content,
@@ -53,9 +53,9 @@ function OrderHistory({ user, onBack }) {
     const handleCancelOrder = async (orderId) => {
         if (window.confirm("Bạn có chắc chắn muốn hủy đơn hàng này không? Số lượng sản phẩm sẽ được hoàn lại kho.")) {
             try {
-                await axios.put(`http://localhost:5000/api/orders/cancel/${orderId}`);
+                await axios.put(`${process.env.REACT_APP_API_URL}/api/orders/cancel/${orderId}`);
                 // Tải lại danh sách đơn hàng
-                const res = await axios.get(`http://localhost:5000/api/orders/user/${user.user_id}`);
+                const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/orders/user/${user.user_id}`);
                 setOrders(res.data);
             } catch (err) {
                 alert("Lỗi khi hủy đơn: " + (err.response?.data || err.message));
