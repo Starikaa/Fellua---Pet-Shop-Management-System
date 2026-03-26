@@ -558,7 +558,6 @@ app.get('/api/admin/reports/:month/:year', async (req, res) => {
 app.post('/api/chat', async (req, res) => {
     try {
         const { message, userId, role, messageCount } = req.body;
-        let pool = await sql.connect(dbConfig);
 
         if (!userId && messageCount >= 1) {
             return res.status(403).json({
@@ -594,7 +593,7 @@ app.post('/api/chat', async (req, res) => {
 
             if (p.pcc_status === 'Active' && p.remaining_discount_qty > 0) {
                 const originalPrice = p.price + p.discount_amount;
-                info += `🔥 ĐANG GIẢM GIÁ MẠNH! Giá ưu đãi: ${p.price.toLocaleString()}đ (Giá cũ: ${originalPrice.toLocaleString()}đ). `;
+                info += `ĐANG GIẢM GIÁ MẠNH! Giá ưu đãi: ${p.price.toLocaleString()}đ (Giá cũ: ${originalPrice.toLocaleString()}đ). `;
                 info += `CẢNH BÁO: Chỉ còn đúng ${p.remaining_discount_qty} suất giá rẻ cuối cùng! `;
             } else {
                 info += `Giá bán: ${p.price.toLocaleString()}đ. `;
