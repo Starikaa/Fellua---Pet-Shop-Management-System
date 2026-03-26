@@ -9,14 +9,14 @@ function CategoryManagement({ onBack }) {
     useEffect(() => { fetchCats(); }, []);
 
     const fetchCats = async () => {
-        const res = await axios.get('http://localhost:5000/api/categories');
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/categories`);
         setCategories(res.data);
     };
 
     const handleAdd = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('http://localhost:5000/api/admin/categories', {
+            await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/categories`, {
                 categoryId: newCat.id,
                 categoryName: newCat.name,
                 categoryIcon: newCat.icon
@@ -30,7 +30,7 @@ function CategoryManagement({ onBack }) {
     const handleDelete = async (id) => {
         if (window.confirm("Xóa loại hàng này sẽ ảnh hưởng đến hiển thị, bạn chắc chứ?")) {
             try {
-                await axios.delete(`http://localhost:5000/api/admin/categories/${id}`);
+                await axios.delete(`${process.env.REACT_APP_API_URL}/api/admin/categories/${id}`);
                 fetchCats();
             } catch (err) { alert(err.response.data.error); }
         }
@@ -38,7 +38,7 @@ function CategoryManagement({ onBack }) {
     const handleUpdate = async (e) => {
         e.preventDefault();
         try {
-            await axios.put(`http://localhost:5000/api/admin/categories/${editingCat.category_id}`, {
+            await axios.put(`${process.env.REACT_APP_API_URL}/api/admin/categories/${editingCat.category_id}`, {
                 categoryName: editingCat.category_name,
                 categoryIcon: editingCat.category_icon
             });
