@@ -182,7 +182,6 @@ app.post('/api/feedback', async (req, res) => {
             return res.status(400).json({ error: "Vui lòng nhập thêm đánh giá (tối thiểu 3 từ)!" });
         }
 
-        let pool = await sql.connect(dbConfig);
         await pool.execute('INSERT INTO Feedback (user_id, product_id, content, rating, feedback_date) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)', [userId, productId, content, rating]);
         res.json({ message: "Gửi đánh giá thành công!" });
     } catch (err) {
