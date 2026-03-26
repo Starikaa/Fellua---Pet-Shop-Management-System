@@ -120,22 +120,12 @@ app.put('/api/admin/users/role', async (req, res) => {
 app.put('/api/user/update', async (req, res) => {
     try {
         const { userId, fullName, dob, sex } = req.body;
-
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('fullName', sql.NVarChar, fullName)
-            .input('dob', sql.Date, dob)
-            .input('sex', sql.Char, sex)
-            .query(`
-                UPDATE Users 
-                SET full_name = @fullName, date_of_birth = @dob, sex = @sex 
-                WHERE user_id = @userId
-            `);
-
+        await pool.execute(
+            'UPDATE Users SET full_name = ?, date_of_birth = ?, sex = ? WHERE user_id = ?',
+            [fullName, dob, sex, userId]
+        );
         res.json({ message: "Cập nhật thành công!", fullName });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Xóa sản phẩm (C10)
@@ -474,17 +464,9 @@ app.get('/api/categories', async (req, res) => {
 app.post('/api/admin/categories', async (req, res) => {
     try {
         const { categoryId, categoryName, categoryIcon } = req.body;
-        let pool = await sql.connect(dbConfig);
-        await pool.request()
-            .input('id', sql.NVarChar, categoryId)
-            .input('name', sql.NVarChar, categoryName)
-            .input('icon', sql.NVarChar, categoryIcon)
-            // Thêm N trước giá trị icon để hỗ trợ Emoji
-            .query('INSERT INTO Category (category_id, category_name, category_icon) VALUES (@id, @name, @icon)');
+        await pool.execute('INSERT INTO Category (category_id, category_name, category_icon) VALUES (?, ?, ?)', [categoryId, categoryName, categoryIcon]);
         res.json({ message: "Thêm thành công!" });
-    } catch (err) {
-        res.status(500).json({ error: "Mã loại hàng đã tồn tại hoặc lỗi dữ liệu!" });
-    }
+    } catch (err) { res.status(500).json({ error: "Lỗi: " + err.message }); }
 });
 app.put('/api/admin/categories/:id', async (req, res) => {
     try {
@@ -628,68 +610,34 @@ app.get('/api/ppc/active', async (req, res) => {
 });
 
 app.put('/api/orders/cancel/:id', async (req, res) => {
+    const connection = await pool.getConnection();
     try {
+        await connection.beginTransaction();
         const orderId = req.params.id;
-        let pool = await sql.connect(dbConfig);
 
-        // 1. Lấy thông tin từ bảng Order_Item (nơi chứa số lượng thực tế)
-        const orderInfo = await pool.request()
-            .input('oid', sql.Int, orderId)
-            .query(`
-                SELECT oi.product_id, oi.num_per_prod, o.status_order 
-                FROM Orders o
-                JOIN Order_Item oi ON o.order_id = oi.order_id
-                WHERE o.order_id = @oid
-            `);
+        const [orders] = await connection.execute('SELECT oi.product_id, oi.num_per_prod, o.status_order FROM Orders o JOIN Order_Item oi ON o.order_id = oi.order_id WHERE o.order_id = ?', [orderId]);
+        if (orders.length === 0) return res.status(404).json({ error: "Không tìm thấy đơn hàng!" });
+        
+        const order = orders[0];
+        if (order.status_order === 'Đã hủy') return res.status(400).json({ error: "Đơn hàng đã hủy trước đó!" });
 
-        if (orderInfo.recordset.length === 0) {
-            return res.status(404).json({ error: "Không tìm thấy thông tin sản phẩm trong đơn hàng!" });
-        }
+        await connection.execute("UPDATE Orders SET status_order = 'Đã hủy' WHERE order_id = ?", [orderId]);
+        await connection.execute("UPDATE Product SET num_product = num_product + ? WHERE product_id = ?", [order.num_per_prod, order.product_id]);
 
-        const order = orderInfo.recordset[0];
-
-        // Kiểm tra trạng thái: Chỉ cho hủy nếu đang "Chờ xác nhận" hoặc tương đương
-        if (order.status_order === 'Đã hủy' || order.status_order === 'Giao hàng thành công') {
-            return res.status(400).json({ error: "Đơn hàng này đã kết thúc, không thể hủy!" });
-        }
-
-        // 2. Sử dụng Transaction để đảm bảo tính toàn vẹn dữ liệu
-        const transaction = new sql.Transaction(pool);
-        await transaction.begin();
-        try {
-            // Cập nhật trạng thái đơn hàng thành 'Đã hủy'
-            await transaction.request()
-                .input('oid', sql.Int, orderId)
-                .query("UPDATE Orders SET status_order = N'Đã hủy' WHERE order_id = @oid");
-
-            // Cộng lại số lượng sản phẩm vào kho (num_per_prod lấy từ Order_Item)
-            await transaction.request()
-                .input('pid', sql.Int, order.product_id)
-                .input('qty', sql.Int, order.num_per_prod)
-                .query("UPDATE Product SET num_product = num_product + @qty WHERE product_id = @pid");
-
-            await transaction.commit();
-            res.json({ message: "Hủy đơn hàng thành công và đã hoàn kho!" });
-        } catch (err) {
-            await transaction.rollback();
-            throw err;
-        }
+        await connection.commit();
+        res.json({ message: "Hủy đơn hàng và hoàn kho thành công!" });
     } catch (err) {
-        res.status(500).json({ error: "Lỗi: " + err.message });
-    }
+        await connection.rollback();
+        res.status(500).json({ error: err.message });
+    } finally { connection.release(); }
 });
 
 // API: Xóa danh mục (Lưu ý: Chỉ xóa được nếu không có sản phẩm nào thuộc loại này)
 app.delete('/api/admin/categories/:id', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
-        await pool.request()
-            .input('id', sql.NVarChar, req.params.id)
-            .query('DELETE FROM Category WHERE category_id = @id');
+        await pool.execute('DELETE FROM Category WHERE category_id = ?', [req.params.id]);
         res.json({ message: "Đã xóa loại hàng thành công!" });
-    } catch (err) {
-        res.status(500).json({ error: "Không thể xóa loại hàng đang có sản phẩm kinh doanh!" });
-    }
+    } catch (err) { res.status(500).json({ error: "Không thể xóa loại hàng đang có sản phẩm!" }); }
 });
 
 // Lấy toàn bộ sản phẩm (C04)
@@ -832,49 +780,35 @@ app.post('/api/chat', async (req, res) => {
 
 app.get('/api/admin/ai-report', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
-
-        // 1. Lấy báo cáo doanh thu theo tháng
-        const revenueResult = await pool.request().query(`
-            SELECT 
-                MONTH(order_date) as month, 
-                SUM(total_price) as monthly_revenue,
-                COUNT(order_id) as total_orders
+        // 1. Lấy báo cáo doanh thu (Dùng DATE_SUB thay cho DATEADD)
+        const [revenueRows] = await pool.execute(`
+            SELECT MONTH(order_date) as month, SUM(total_price) as monthly_revenue, COUNT(order_id) as total_orders
             FROM Orders
-            WHERE status_order = N'Giao hàng thành công' AND order_date >= DATEADD(month, -3, CURRENT_TIMESTAMP)
+            WHERE status_order = 'Giao hàng thành công' 
+            AND order_date >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 3 MONTH)
             GROUP BY MONTH(order_date)
             ORDER BY month DESC
         `);
 
-        // 2. Lấy tình trạng các chiến dịch PCC (giảm giá/quảng cáo)
-        const pccResult = await pool.request().query(`
-            SELECT 
-                pcc.campaign_name, 
-                p.product_name, 
-                pcc.budget, 
-                pcc.num_of_clicks,
-                (pcc.num_of_clicks * pcc.cost_per_click) as spent
+        // 2. Lấy chiến dịch PCC
+        const [pccRows] = await pool.execute(`
+            SELECT pcc.campaign_name, p.product_name, pcc.budget, pcc.num_of_clicks,
+                   (pcc.num_of_clicks * pcc.cost_per_click) as spent
             FROM PCC_Campaign pcc
             JOIN Product p ON pcc.product_id = p.product_id
             WHERE pcc.status = 'Active'
         `);
 
-        // 3. Lấy đánh giá của khách hàng
-        const feedbackResult = await pool.request().query(`
+        // 3. Lấy feedback (Dùng DATE_SUB)
+        const [feedbackRows] = await pool.execute(`
             SELECT f.content, f.rating, p.product_name, f.feedback_date
             FROM Feedback f 
             JOIN Product p ON f.product_id = p.product_id
-            WHERE f.feedback_date >= DATEADD(day, -7, CURRENT_TIMESTAMP) -- Chỉ lấy feedback 1 tuần qua
+            WHERE f.feedback_date >= DATE_SUB(CURRENT_TIMESTAMP, INTERVAL 7 DAY)
             ORDER BY f.feedback_date DESC
-`);
+        `);
 
-        // Chuẩn bị dữ liệu thô cho AI
-        const reportData = {
-            revenue: revenueResult.recordset,
-            campaigns: pccResult.recordset,
-            feedbacks: feedbackResult.recordset
-        };
-
+        const reportData = { revenue: revenueRows, campaigns: pccRows, feedbacks: feedbackRows };
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const prompt = `Bạn là một chuyên gia phân tích dữ liệu kinh doanh cao cấp. Hãy dựa vào số liệu thực tế sau đây từ cửa hàng thú cưng Fellua để viết một báo cáo tóm tắt cho chủ cửa hàng:
