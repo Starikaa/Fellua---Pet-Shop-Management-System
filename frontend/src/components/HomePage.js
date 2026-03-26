@@ -47,36 +47,43 @@ function HomePage({ products, categories, onProductClick, onCategorySelect, acti
                 </h2>
                 <div className="grid">
                     {filteredProducts.length > 0 ? (
-                        filteredProducts.map(product => (
-                            <div className="card" key={product.product_id} onClick={() => onProductClick(product)}>
-                                <div className="product-img" style={{ position: 'relative' }}>
-                                    {product.discount_amount > 0 && (
-                                        <div className="card-discount-badge">
-                                            -{Math.round((product.discount_amount / (product.price + product.discount_amount)) * 100)}%
+                        filteredProducts.map(product => {
+                            const currentPrice = Number(product.price || 0);
+                            const discount = Number(product.discount_amount || 0);
+                            const originalPrice = currentPrice + discount;
+            
+                            const percent = originalPrice > 0 ? Math.round((discount / originalPrice) * 100) : 0;
+
+                            return (
+                                <div className="card" key={product.product_id} onClick={() => onProductClick(product)}>
+                                    <div className="product-img" style={{ position: 'relative' }}>
+                                        {discount > 0 && (
+                                            <div className="card-discount-badge">
+                                                -{percent}%
+                                            </div>
+                                        )}
+                                        <img src={product.image_url || 'https://via.placeholder.com/200'} alt={product.product_name} />
+                                    </div>
+                                    <div className="card-info">
+                                        <h3>{product.product_name}</h3>
+                                        <div className="rating-info" style={{ fontSize: '12px', color: '#888', marginBottom: '5px' }}>
+                                            {product.total_feedback > 0 ? (
+                                                <span>⭐ {Number(product.avg_rating).toFixed(1)} ({product.total_feedback} đánh giá)</span>
+                                            ) : (
+                                                <span>Chưa có đánh giá</span>
+                                            )}
                                         </div>
-                                    )}
-                                    <img src={product.image_url || 'https://via.placeholder.com/200'} alt={product.product_name} />
-                                </div>
-                                <div className="card-info">
-                                    <h3>{product.product_name}</h3>
-                                    <div className="rating-info" style={{ fontSize: '12px', color: '#888', marginBottom: '5px' }}>
-                                        {product.total_feedback > 0 ? (
-                                            <span>⭐ {Number(product.avg_rating).toFixed(1)} ({product.total_feedback} đánh giá)</span>
-                                        ) : (
-                                            <span>Chưa có đánh giá</span>
-                                        )}
+                                        <div className="price-box">
+                                                <span className="current-price">{currentPrice.toLocaleString()}đ</span>
+                                            {discount > 0 && (
+                                                <span className="old-price">{originalPrice.toLocaleString()}đ</span>
+                                            )}
+                                        </div>
+                                        <button className="view-detail">Xem chi tiết</button>
                                     </div>
-                                    <div className="price-box">
-                                        <span className="current-price">{product.price.toLocaleString()}đ</span>
-                                        {/* Nếu có discount_amount > 0 thì mới hiện giá cũ */}
-                                        {product.discount_amount > 0 && (
-                                            <span className="old-price">{(product.price + product.discount_amount).toLocaleString()}đ</span>
-                                        )}
-                                    </div>
-                                    <button className="view-detail">Xem chi tiết</button>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     ) : (
                         <p style={{ textAlign: 'center', gridColumn: '1/-1' }}>Hiện chưa có sản phẩm nào thuộc danh mục này.</p>
                     )}
