@@ -16,7 +16,7 @@ function ProductDetail({ product: initialProduct, user, onBack }) {
     useEffect(() => {
         const fetchFeedbacks = async () => {
             try {
-                const res = await axios.get(`http://localhost:5000/api/feedback/product/${product.product_id}`);
+                const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/feedback/product/${product.product_id}`);
                 setFeedbacks(res.data);
             } catch (err) {
                 console.error("Lỗi tải bình luận");
@@ -30,11 +30,11 @@ function ProductDetail({ product: initialProduct, user, onBack }) {
         const loadProductData = async () => {
             try {
                 // Gọi API lấy thông tin mới nhất bao gồm discount_amount
-                const res = await axios.get(`http://localhost:5000/api/products/${initialProduct.product_id}`);
+                const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/products/${initialProduct.product_id}`);
                 setProduct(res.data);
 
                 // Tải bình luận
-                const fbRes = await axios.get(`http://localhost:5000/api/feedback/product/${initialProduct.product_id}`);
+                const fbRes = await axios.get(`${process.env.REACT_APP_API_URL}/api/feedback/product/${initialProduct.product_id}`);
                 setFeedbacks(fbRes.data);
             } catch (err) {
                 console.error("Lỗi tải dữ liệu sản phẩm");
@@ -58,14 +58,14 @@ function ProductDetail({ product: initialProduct, user, onBack }) {
         }
 
         try {
-            const response = await axios.post('http://localhost:5000/api/orders', {
+            const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/orders`, {
                 userId: user.user_id,
                 productId: product.product_id,
                 quantity: quantity, 
                 totalPrice: product.price * quantity 
             });
             alert("Đặt hàng thành công!")
-            const res = await axios.get(`http://localhost:5000/api/products/${product.product_id}`);
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/products/${product.product_id}`);
             setProduct(res.data); 
             setQuantity(1);
         } catch (err) {
