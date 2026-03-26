@@ -11,7 +11,7 @@ function UserManagement({ user, onBack }) {
 
     const fetchUsers = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/admin/users');
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/admin/users`);
             setUsers(res.data);
         } catch (err) { alert("Không thể lấy danh sách người dùng"); }
     };
@@ -19,15 +19,15 @@ function UserManagement({ user, onBack }) {
     const handleToggleStatus = async (userId, currentStatus) => {
         const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
         try {
-            await axios.put(`http://localhost:5000/api/admin/users/status`, { userId, status: newStatus });
-            fetchUsers(); // C14: Cập nhật lại giao diện [cite: 198]
+            await axios.put(`${process.env.REACT_APP_API_URL}/api/admin/users/status`, { userId, status: newStatus });
+            fetchUsers(); // C14: Cập nhật lại giao diện 
         } catch (err) { alert("Lỗi khi thay đổi trạng thái"); }
     };
 
     const handleChangeRole = async (userId, newRole) => {
         try {
-            await axios.put(`http://localhost:5000/api/admin/users/role`, { userId, roleId: newRole });
-            fetchUsers(); // C15: Cập nhật lại giao diện [cite: 200]
+            await axios.put(`${process.env.REACT_APP_API_URL}/api/admin/users/role`, { userId, roleId: newRole });
+            fetchUsers(); // C15: Cập nhật lại giao diện 
         } catch (err) { alert(err.response?.data?.error); }
     };
 
