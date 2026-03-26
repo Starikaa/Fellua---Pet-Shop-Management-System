@@ -25,7 +25,7 @@ function ProductManagement({ onBack }) {
 
     const fetchCategories = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/categories');
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/categories`);
             setDbCategories(res.data);
 
             // Cập nhật giá trị mặc định cho sản phẩm mới là ID của danh mục đầu tiên
@@ -37,7 +37,7 @@ function ProductManagement({ onBack }) {
 
     const fetchProducts = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/products');
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/products`);
             setProducts(res.data);
         } catch (err) { console.error("Lỗi tải sản phẩm"); }
     };
@@ -54,7 +54,7 @@ function ProductManagement({ onBack }) {
         if (newProduct.image) formData.append('image', newProduct.image);
 
         try {
-            await axios.post('http://localhost:5000/api/admin/products', formData);
+            await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/products`, formData);
             setShowAddForm(false);
             fetchProducts();
         } catch (err) { alert("Lỗi khi thêm sản phẩm"); }
@@ -64,7 +64,7 @@ function ProductManagement({ onBack }) {
     const handleDelete = async (id) => {
         if (window.confirm("Chủ nhân chắc chắn muốn xóa mặt hàng này chứ? 🐾")) {
             try {
-                await axios.delete(`http://localhost:5000/api/admin/products/${id}`);
+                await axios.delete(`${process.env.REACT_APP_API_URL}/api/admin/products/${id}`);
                 fetchProducts();
             } catch (err) {
                 const errorMsg = err.response?.data?.error || "Đã xảy ra lỗi không xác định khi xóa.";
@@ -86,7 +86,7 @@ function ProductManagement({ onBack }) {
         }
 
         try {
-            await axios.put(`http://localhost:5000/api/admin/products/${editingProduct.product_id}`, formData);
+            await axios.put(`${process.env.REACT_APP_API_URL}/api/admin/products/${editingProduct.product_id}`, formData);
             setEditingProduct(null);
             fetchProducts();
         } catch (err) { alert("Lỗi khi cập nhật"); }
