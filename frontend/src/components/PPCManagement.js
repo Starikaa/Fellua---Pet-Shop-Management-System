@@ -30,23 +30,43 @@ function PPCManagement({ user, onBack }) {
     };
 
     const handleCreatePPC = async (e) => {
-        e.preventDefault();
-        const data = new FormData();
-        data.append('creatorId', user.user_id);
-        data.append('campaignName', formData.name);
-        data.append('budget', formData.budget);
-        data.append('cpc', formData.cpc);
-        data.append('productId', formData.productId);
-        data.append('banner', formData.banner);
+    e.preventDefault();
+    
+    // 1. Kiểm tra an toàn trước khi gửi
+    if (!user || !user.user_id) {
+        alert("Lỗi: Không tìm thấy thông tin Admin. Vui lòng đăng nhập lại!");
+        return;
+    }
 
-        try {
-            await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/ppc`, data);
-            setShowAddForm(false); 
-            fetchCampaigns();
-        } catch (err) {
-            alert("Lỗi tạo chiến dịch: " + err.response?.data?.error);
-        }
-    };
+    const data = new FormData();
+    // Ép kiểu Number ngay tại đây để chắc chắn
+    data.append('creatorId', Number(user.user_id));
+    data.append('productId', Number(formData.productId));
+    data.append('campaignName', formData.name);
+    data.append('budget', Number(formData.budget));
+    data.append('cpc', Number(formData.cpc));
+    
+    // Kiểm tra có banner không
+    if (formData.banner) {
+        data.append('banner', formData.banner);
+    }
+
+    try {
+        console.log(" Đang gửi data:", Object.fromEntries(data)); 
+        
+        await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/ppc`, data, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        alert(" Tạo chiến dịch thành công!");
+        setShowAddForm(false); 
+        fetchCampaigns();
+    } catch (err) {
+        console.error(" Lỗi Frontend:", err);
+        const serverError = err.response?.data?.detail || err.response?.data?.error || "Lỗi không xác định";
+        alert(" Lỗi tạo chiến dịch: " + serverError);
+    }
+};
 
 
     const handleUpdatePPC = async (e) => {
