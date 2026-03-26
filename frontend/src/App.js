@@ -39,18 +39,18 @@ function App() {
     // 1. Lấy danh sách sản phẩm từ Backend khi web vừa load
     useEffect(() => {
         // Giả sử bạn có route /api/products ở backend
-        axios.get(${process.env.REACT_APP_API_URL}/api/products)
+        axios.get(`${process.env.REACT_APP_API_URL}/api/products`)
             .then(res => setProducts(res.data))
             .catch(err => console.log("Chưa có API lấy sản phẩm"));
         const handleTabClose = () => {
             if (!user) {
                 // Gửi yêu cầu xóa lời thoại Guest trước khi đóng trình duyệt
-                navigator.sendBeacon(${process.env.REACT_APP_API_URL}/api/chat/guest/clear);
+                navigator.sendBeacon(`${process.env.REACT_APP_API_URL}/api/chat/guest/clear`);
             }
         };
         const fetchCats = async () => {
             try {
-                const res = await axios.get(${process.env.REACT_APP_API_URL}/api/categories);
+                const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/categories`);
                 setCategories(res.data);
             } catch (err) {
                 console.error("Lỗi: Không thể lấy danh mục từ DB");
@@ -64,7 +64,7 @@ function App() {
         fetchCats();
         const fetchPPC = async () => {
             try {
-                const res = await axios.get(${process.env.REACT_APP_API_URL}/api/ppc/active);
+                const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/ppc/active`);
                 setActiveCampaigns(res.data);
             } catch (err) { console.error("Lỗi tải PPC"); }
         };
@@ -82,11 +82,11 @@ function App() {
     const refreshHomeData = async () => {
         try {
             // Lấy lại danh sách sản phẩm (để cập nhật giá gốc/giảm)
-            const prodRes = await axios.get(${process.env.REACT_APP_API_URL}/api/products);
+            const prodRes = await axios.get(`${process.env.REACT_APP_API_URL}/api/products`);
             setProducts(prodRes.data);
 
             // Lấy lại danh sách quảng cáo đang Active (để gỡ banner hết hạn)
-            const ppcRes = await axios.get(${process.env.REACT_APP_API_URL}/api/ppc/active);
+            const ppcRes = await axios.get(`${process.env.REACT_APP_API_URL}/api/ppc/active`);
             setActiveCampaigns(ppcRes.data);
         } catch (err) {
             console.error("Lỗi làm mới dữ liệu trang chủ:", err);
@@ -192,7 +192,7 @@ function App() {
         : products;
     const handleUpdateProfile = async () => {
         try {
-            const res = await axios.put(${process.env.REACT_APP_API_URL}/api/user/update, {
+            const res = await axios.put(`${process.env.REACT_APP_API_URL}/api/user/update`, {
                 userId: user.user_id,
                 ...editData
             });
@@ -222,7 +222,7 @@ function App() {
         setInput('');
 
         try {
-            const response = await axios.post(${process.env.REACT_APP_API_URL}/api/chat, {
+            const response = await axios.post(`${process.env.REACT_APP_API_URL}/api/chat`, {
                 message: input,
                 userId: user ? user.user_id : null,
                 messageCount: guestAskCount,
