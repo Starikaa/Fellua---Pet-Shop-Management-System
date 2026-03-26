@@ -369,48 +369,22 @@ app.put('/api/admin/categories/:id', async (req, res) => {
 
 app.post('/api/admin/ppc', upload.single('banner'), async (req, res) => {
     try {
-        // 1. Lấy và ép kiểu dữ liệu
-        const creatorId = parseInt(req.body.creatorId);
-        const productId = parseInt(req.body.productId);
-        const budget = parseFloat(req.body.budget);
-        const cpc = parseFloat(req.body.cpc);
-        const campaignName = req.body.campaignName;
-        const imageUrl = req.file ? req.file.path : (req.body.banner_url || null);
+        const { creatorId, campaignName, budget, cpc, productId } = req.body;
+        // Lấy link ảnh từ Cloudinary sau khi upload thành công
+        const imageUrl = req.file ? req.file.path : null;
 
-        // 2. Validate dữ liệu trước khi nạp vào DB
-        if (isNaN(creatorId) || isNaN(productId)) {
-            return res.status(400).json({ error: `ID không hợp lệ: Creator=${req.body.creatorId}, Product=${req.body.productId}` });
-        }
+        let pool = await sql.connect(dbConfig);
 
-        console.log(`🚀 Đang tạo PPC cho SP ${productId} bởi Admin ${creatorId}`);
+        // 1. Lưu chiến dịch (Sửa imageUrl đúng với biến đã khai báo)
+        await pool.execute(`
+                INSERT INTO PCC_Campaign (creator_id, product_id, campaign_name, budget, cost_per_click, banner_url, status, num_of_clicks)
+                VALUES (?, ?, ?, ?, ?, ?, 'Active', 0)`, [creatorId, productId, campaignName, budget, cpc, imageUrl]);
 
-        // 3. Thực hiện INSERT 
-        const [result] = await pool.execute(
-            `INSERT INTO PCC_Campaign (creator_id, product_id, campaign_name, budget, cost_per_click, banner_url, status, num_of_clicks)
-             VALUES (?, ?, ?, ?, ?, ?, 'Active', 0)`,
-            [creatorId, productId, campaignName, budget, cpc, imageUrl]
-        );
+        // 2. Tự động giảm giá trực tiếp vào bảng Product
+        await pool.execute('UPDATE Product SET price = price - ? WHERE product_id = ?', [cpc, productId]);
 
-        // 4. Cập nhật giảm giá sản phẩm 
-        const [updateRes] = await pool.execute(
-            'UPDATE Product SET price = price - ? WHERE product_id = ?', 
-            [cpc, productId]
-        );
-
-        console.log("Tạo chiến dịch thành công!");
-        res.json({ message: "Kích hoạt quảng cáo thành công!", campaignId: result.insertId });
-
-    } catch (err) { 
-        console.error("LỖI SQL PPC CHI TIẾT:");
-        console.error("- Message:", err.message);
-        console.error("- Code:", err.code);
-        
-        res.status(500).json({ 
-            error: "Lỗi hệ thống", 
-            detail: err.message,
-            sqlCode: err.code 
-        }); 
-    }
+        res.json({ message: "Kích hoạt quảng cáo và giảm giá thành công!" });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.put('/api/admin/ppc/:id', upload.single('banner'), async (req, res) => {
