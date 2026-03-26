@@ -16,7 +16,7 @@ function PPCManagement({ user, onBack }) {
     });
 
     const fetchCampaigns = async () => {
-        const res = await axios.get('http://localhost:5000/api/admin/ppc');
+        const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/admin/ppc`);
         setCampaigns(res.data);
     };
 
@@ -24,7 +24,7 @@ function PPCManagement({ user, onBack }) {
 
     const handleDelete = async (id) => {
         if (window.confirm("Bạn có chắc muốn dừng và xóa quảng cáo này?")) {
-            await axios.delete(`http://localhost:5000/api/admin/ppc/${id}`);
+            await axios.delete(`${process.env.REACT_APP_API_URL}/api/admin/ppc/${id}`);
             fetchCampaigns();
         }
     };
@@ -40,7 +40,7 @@ function PPCManagement({ user, onBack }) {
         data.append('banner', formData.banner);
 
         try {
-            await axios.post('http://localhost:5000/api/admin/ppc', data);
+            await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/ppc`, data);
             setShowAddForm(false); 
             fetchCampaigns();
         } catch (err) {
@@ -63,7 +63,7 @@ function PPCManagement({ user, onBack }) {
         }
 
         try {
-            await axios.put(`http://localhost:5000/api/admin/ppc/${editingCampaign.campaign_id}`, formDataUpdate);
+            await axios.put(`${process.env.REACT_APP_API_URL}/api/admin/ppc/${editingCampaign.campaign_id}`, formDataUpdate);
             setEditingCampaign(null);
             fetchCampaigns();
         } catch (err) {
