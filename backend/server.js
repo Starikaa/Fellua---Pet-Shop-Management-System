@@ -369,35 +369,38 @@ app.put('/api/admin/categories/:id', async (req, res) => {
 
 app.post('/api/admin/ppc', async (req, res) => {
     try {
+        // LOG để kiểm tra dữ liệu thực tế Server nhận được
+        console.log("👉 Dữ liệu nhận được:", req.body);
+
         const creatorId = parseInt(req.body.creatorId);
         const productId = parseInt(req.body.productId);
         const budget = parseFloat(req.body.budget);
         const cpc = parseFloat(req.body.cpc);
         const campaignName = req.body.campaignName;
-        // Tạm thời dùng link ảnh mặc định nếu không có file
         const imageUrl = "https://res.cloudinary.com/demo/image/upload/v1/sample.jpg";
 
-        console.log(`🚀 TEST DB: Admin ${creatorId} tạo PPC cho SP ${productId}`);
+        if (isNaN(creatorId) || isNaN(productId)) {
+            return res.status(400).json({ 
+                error: "Dữ liệu không hợp lệ", 
+                received: req.body 
+            });
+        }
 
+        // Thực hiện INSERT
         const [result] = await pool.execute(
             `INSERT INTO PCC_Campaign (creator_id, product_id, campaign_name, budget, cost_per_click, banner_url, status, num_of_clicks)
              VALUES (?, ?, ?, ?, ?, ?, 'Active', 0)`,
             [creatorId, productId, campaignName, budget, cpc, imageUrl]
         );
 
-        await pool.execute(
-            'UPDATE Product SET price = price - ? WHERE product_id = ?', 
-            [cpc, productId]
-        );
+        // Cập nhật giảm giá sản phẩm
+        await pool.execute('UPDATE Product SET price = price - ? WHERE product_id = ?', [cpc, productId]);
 
-        res.json({ message: "TEST THÀNH CÔNG! Đã nạp vào DB." });
+        res.json({ message: "✅ TEST DB THÀNH CÔNG!" });
 
     } catch (err) { 
-        // Ép kiểu lỗi ra string để Railway KHÔNG THỂ hiện [object Object]
-        const errorText = String(err.message || err);
-        console.error("🔥 LỖI THỰC SỰ ĐÂY NÈ:", errorText);
-        
-        res.status(500).json({ error: errorText }); 
+        console.error("🔥 LỖI SQL:", err.message);
+        res.status(500).json({ error: err.message }); 
     }
 });
 app.put('/api/admin/ppc/:id', upload.single('banner'), async (req, res) => {
