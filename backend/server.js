@@ -456,7 +456,9 @@ app.get('/api/categories', async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT category_id, category_name, category_icon FROM Category');
         res.json(rows);
+        console.log('log')
     } catch (err) {
+        console.log('fail')
         res.status(500).json({ error: err.message });
     }
 });
