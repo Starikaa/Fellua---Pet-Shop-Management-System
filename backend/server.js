@@ -501,17 +501,14 @@ app.delete('/api/admin/ppc/:id', async (req, res) => {
 
 app.get('/api/feedback/product/:id', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
-        let result = await pool.request()
-            .input('productId', sql.Int, req.params.id)
-            .query(`
-                SELECT f.content, f.rating, f.feedback_date, u.full_name
-                FROM Feedback f
-                JOIN [User] u ON f.user_id = u.user_id
-                WHERE f.product_id = @productId
-                ORDER BY f.feedback_date DESC
-            `);
-        res.json(result.recordset);
+        const [rows] = await pool.execute(`
+            SELECT f.content, f.rating, f.feedback_date, u.full_name
+            FROM Feedback f
+            JOIN Users u ON f.user_id = u.user_id
+            WHERE f.product_id = ?
+            ORDER BY f.feedback_date DESC
+        `, [req.params.id]); 
+        res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -519,9 +516,8 @@ app.get('/api/feedback/product/:id', async (req, res) => {
 
 app.get('/api/categories', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
-        let result = await pool.request().query('SELECT category_id, category_name, category_icon FROM Category');
-        res.json(result.recordset);
+        const [rows] = await pool.execute('SELECT category_id, category_name, category_icon FROM Category');
+        res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
