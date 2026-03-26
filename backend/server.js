@@ -63,20 +63,13 @@ const upload = multer({ storage: storage });
 app.post('/api/admin/products', upload.single('image'), async (req, res) => {
     try {
         const { categoryId, productName, price, numProduct, detailProduct } = req.body;
-        const imageUrl = req.file ? req.file.path : null; // Link ảnh từ Cloudinary
+        const imageUrl = req.file ? req.file.path : null;
 
-        let pool = await sql.connect(dbConfig);
-        await pool.request()
-            .input('catId', sql.NVarChar, categoryId)
-            .input('name', sql.NVarChar, productName)
-            .input('price', sql.Decimal, price)
-            .input('num', sql.Int, numProduct)
-            .input('img', sql.NVarChar, imageUrl)
-            .input('detail', sql.NVarChar, detailProduct)
-            .query(`
-                INSERT INTO Product (category_id, product_name, price, num_product, image_url, detail_product)
-                VALUES (@catId, @name, @price, @num, @img, @detail)
-            `);
+        const [result] = await pool.execute(
+            `INSERT INTO Product (category_id, product_name, price, num_product, image_url, detail_product)
+             VALUES (?, ?, ?, ?, ?, ?)`,
+            [categoryId, productName, price, numProduct, imageUrl, detailProduct]
+        );
 
         res.json({ message: "Thêm sản phẩm thành công!", imageUrl });
     } catch (err) {
@@ -90,9 +83,8 @@ app.post('/api/logout', (req, res) => {
 
 app.get('/api/admin/users', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
-        let result = await pool.request().query('SELECT user_id, full_name, email, role_id, status FROM [User]');
-        res.json(result.recordset);
+        const [rows] = await pool.execute('SELECT user_id, full_name, email, role_id, status FROM Users');
+        res.json(rows);
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -100,18 +92,11 @@ app.get('/api/admin/users', async (req, res) => {
 app.put('/api/admin/users/status', async (req, res) => {
     const { userId, status } = req.body;
     try {
-        let pool = await sql.connect(dbConfig);
-        const checkAdmin = await pool.request()
-            .input('uid', sql.Int, userId)
-            .query('SELECT role_id FROM [User] WHERE user_id = @uid');
-
-        if (checkAdmin.recordset[0]?.role_id === 'ADM') {
-            return res.status(403).json({ error: "Không thể thay đổi trạng thái của tài khoản Quản trị viên!" });
+        const [users] = await pool.execute('SELECT role_id FROM Users WHERE user_id = ?', [userId]);
+        if (users[0]?.role_id === 'ADM') {
+            return res.status(403).json({ error: "Không thể thay đổi trạng thái Admin!" });
         }
-        await pool.request()
-            .input('userId', sql.Int, userId)
-            .input('status', sql.NVarChar, status)
-            .query('UPDATE [User] SET status = @status WHERE user_id = @userId');
+        await pool.execute('UPDATE Users SET status = ? WHERE user_id = ?', [status, userId]);
         res.json({ message: "Cập nhật trạng thái thành công" });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -319,64 +304,36 @@ app.post('/api/feedback', async (req, res) => {
 });
 
 app.post('/api/orders', async (req, res) => {
+    const connection = await pool.getConnection();
     try {
+        await connection.beginTransaction();
         const { userId, productId, quantity, totalPrice } = req.body;
-        let pool = await sql.connect(dbConfig);
 
-        // 1. Tạo đơn hàng mới
-        const orderRes = await pool.request()
-            .input('uid', sql.Int, userId)
-            .input('total', sql.Decimal, totalPrice)
-            .query(`INSERT INTO [Order] (user_id, order_date, status_order, total_price, prods_per_order) 
-                    OUTPUT INSERTED.order_id VALUES (@uid, GETDATE(), N'Chờ xác nhận', @total, 1)`);
+        const [orderRes] = await connection.execute(
+            `INSERT INTO Orders (user_id, order_date, status_order, total_price, prods_per_order) 
+             VALUES (?, CURRENT_DATE(), 'Chờ xác nhận', ?, 1)`,
+            [userId, totalPrice]
+        );
+        const orderId = orderRes.insertId;
 
-        const orderId = orderRes.recordset[0].order_id;
+        await connection.execute(
+            'INSERT INTO Order_Item (order_id, product_id, num_per_prod) VALUES (?, ?, ?)',
+            [orderId, productId, quantity]
+        );
 
-        // 2. Thêm vào chi tiết đơn hàng
-        await pool.request()
-            .input('oid', sql.Int, orderId)
-            .input('pid', sql.Int, productId)
-            .input('qty', sql.Int, quantity)
-            .query(`INSERT INTO Order_Item (order_id, product_id, num_per_prod) VALUES (@oid, @pid, @qty)`);
+        await connection.execute(
+            'UPDATE Product SET num_product = num_product - ? WHERE product_id = ?',
+            [quantity, productId]
+        );
 
-        // 3. Trừ số lượng trong kho
-        await pool.request()
-            .input('pid', sql.Int, productId)
-            .input('qty', sql.Int, quantity)
-            .query(`UPDATE Product SET num_product = num_product - @qty WHERE product_id = @pid`);
-
-        const cpRes = await pool.request()
-            .input('pid', sql.Int, productId)
-            .query("SELECT * FROM PCC_Campaign WHERE product_id = @pid AND status = 'Active'");
-
-        if (cpRes.recordset.length > 0) {
-            const cp = cpRes.recordset[0];
-
-            // 2. Tính toán dựa trên số lượng sản phẩm thực tế khách mua (quantity)
-            const newTotalClicks = cp.num_of_clicks + parseInt(quantity);
-            const currentSpent = newTotalClicks * cp.cost_per_click;
-
-            if (currentSpent >= cp.budget) {
-                // HẾT NGÂN SÁCH: Đóng chiến dịch & Hoàn lại giá gốc
-                await pool.request()
-                    .input('cid', sql.Int, cp.campaign_id)
-                    .input('newClicks', sql.Int, newTotalClicks)
-                    .query("UPDATE PCC_Campaign SET status = 'Ended', num_of_clicks = @newClicks WHERE campaign_id = @cid");
-
-                await pool.request()
-                    .input('pid', sql.Int, productId)
-                    .input('cpc', sql.Decimal, cp.cost_per_click)
-                    .query("UPDATE Product SET price = price + @cpc WHERE product_id = @pid");
-            } else {
-                // CÒN NGÂN SÁCH: Chỉ cập nhật số lượng đã bán vào num_of_clicks
-                await pool.request()
-                    .input('cid', sql.Int, cp.campaign_id)
-                    .input('newClicks', sql.Int, newTotalClicks)
-                    .query("UPDATE PCC_Campaign SET num_of_clicks = @newClicks WHERE campaign_id = @cid");
-            }
-        }
+        await connection.commit();
         res.json({ message: "Đặt hàng thành công! 🐾" });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) {
+        await connection.rollback();
+        res.status(500).json({ error: err.message });
+    } finally {
+        connection.release();
+    }
 });
 
 // Thêm vào trong ProductDetail component
@@ -473,63 +430,33 @@ app.post('/api/chat/guest/clear', async (req, res) => {
 app.post('/api/login', async (req, res) => {
     try {
         const { email, password } = req.body;
-        let pool = await sql.connect(dbConfig);
-        const result = await pool.request()
-            .input('email', sql.VarChar, email)
-            .query('SELECT * FROM [User] WHERE email = @email');
+        const [users] = await pool.execute('SELECT * FROM Users WHERE email = ?', [email]);
+        const user = users[0];
 
-        const user = result.recordset[0];
         if (!user) return res.status(404).json({ error: "Người dùng không tồn tại" });
-
-        // KIỂM TRA STATUS: Nếu bị khóa (Inactive hoặc NULL) thì chặn ngay
-        if (user.status !== 'Active') {
-            return res.status(403).json({ error: "Tài khoản của bạn đã bị khóa. Vui lòng liên hệ Admin!" });
-        }
+        if (user.status !== 'Active') return res.status(403).json({ error: "Tài khoản bị khóa!" });
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ error: "Sai mật khẩu" });
 
         const token = jwt.sign({ id: user.user_id, role: user.role_id }, 'SECRET_KEY', { expiresIn: '1d' });
-
-        res.json({
-            token,
-            role: user.role_id,
-            fullName: user.full_name,
-            user_id: user.user_id,
-            dob: user.date_of_birth
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        res.json({ token, role: user.role_id, fullName: user.full_name, user_id: user.user_id });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post('/api/register', async (req, res) => {
     try {
         const { fullName, email, password, dob, sex } = req.body;
-        const hashedPassword = await bcrypt.hash(password, 10); // Mã hóa mật khẩu
-
-        let pool = await sql.connect(dbConfig);
-        await pool.request()
-            .input('roleId', sql.NVarChar, 'CUS') // Mặc định là khách hàng
-            .input('fullName', sql.NVarChar, fullName)
-            .input('email', sql.VarChar, email)
-            .input('password', sql.NVarChar, hashedPassword)
-            .input('dob', sql.Date, dob)
-            .input('sex', sql.Char, sex)
-            .input('status', sql.NVarChar, 'Active')
-            .query('INSERT INTO [User] (role_id, full_name, email, password, date_of_birth, sex, status) VALUES (@roleId, @fullName, @email, @password, @dob, @sex, @status)');
-
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await pool.execute(
+            'INSERT INTO Users (role_id, full_name, email, password, date_of_birth, sex, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            ['CUS', fullName, email, hashedPassword, dob, sex, 'Active']
+        );
         res.json({ message: "Đăng ký thành công!" });
     } catch (err) {
-        if (err.number === 2627 || err.number === 2601) {
-            return res.status(400).json({ error: "Email này đã được sử dụng. Vui lòng chọn email khác!" });
-        }
-
-        console.error("LỖI CHI TIẾT:", err);
-        res.status(500).json({ error: "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau!" });
+        res.status(400).json({ error: "Email đã tồn tại hoặc lỗi dữ liệu!" });
     }
 });
-
 app.get('/api/admin/ppc', async (req, res) => {
     try {
         let pool = await sql.connect(dbConfig);
@@ -824,25 +751,19 @@ app.delete('/api/admin/categories/:id', async (req, res) => {
 // Lấy toàn bộ sản phẩm (C04)
 app.get('/api/products', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
-        let result = await pool.request().query(`
+        const [rows] = await pool.execute(`
             SELECT 
                 p.*, 
                 COUNT(f.feedback_id) AS total_feedback,
                 AVG(f.rating) AS avg_rating,
-                ISNULL(ppc.cost_per_click, 0) as discount_amount -- Thêm dòng này
+                IFNULL(ppc.cost_per_click, 0) as discount_amount
             FROM Product p
             LEFT JOIN Feedback f ON p.product_id = f.product_id
-            LEFT JOIN PCC_Campaign ppc ON p.product_id = ppc.product_id AND ppc.status = 'Active' -- Thêm dòng này
-            GROUP BY 
-                p.product_id, p.category_id, p.product_name, 
-                p.price, p.num_product, p.image_url, p.detail_product,
-                ppc.cost_per_click -- Thêm vào group by
+            LEFT JOIN PCC_Campaign ppc ON p.product_id = ppc.product_id AND ppc.status = 'Active'
+            GROUP BY p.product_id, ppc.cost_per_click
         `);
-        res.json(result.recordset);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Lấy chi tiết sản phẩm (C05)
@@ -975,17 +896,13 @@ app.post('/api/chat', async (req, res) => {
         const result = await model.generateContent(message);
         const response = result.response.text();
 
-        await pool.request()
-            .input('userId', sql.Int, userId || null)
-            .input('question', sql.NVarChar(sql.MAX), message)
-            .input('answer', sql.NVarChar(sql.MAX), response)
-            .query('INSERT INTO [Chat_history] (user_id, question, answer, chat_time) VALUES (@userId, @question, @answer, GETDATE())');
+        await pool.execute(
+            'INSERT INTO Chat_History (user_id, question, answer, chat_time) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
+            [userId || null, message, response]
+        );
 
         res.json({ reply: response });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.get('/api/admin/ai-report', async (req, res) => {
