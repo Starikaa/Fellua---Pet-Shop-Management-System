@@ -31,6 +31,21 @@ const dbConfig = {
     }
 };
 const pool = mysql.createPool(dbConfig);
+// TEST KẾT NỐI NGAY KHI START SERVER
+console.log("--- KIỂM TRA BIẾN MÔI TRƯỜNG ---");
+console.log("DB_HOST:", process.env.DB_HOST ? "Đã nhận ✅" : "TRỐNG ❌");
+console.log("DB_NAME:", process.env.DB_NAME);
+console.log("DB_PORT:", process.env.DB_PORT);
+
+pool.getConnection()
+    .then(connection => {
+        console.log("✅ KẾT NỐI TIDB THÀNH CÔNG! ID kết nối:", connection.threadId);
+        connection.release();
+    })
+    .catch(err => {
+        console.error("❌ THẤT BẠI KHI KẾT NỐI TIDB:", err.message);
+        console.error("Chi tiết lỗi:", err.code); // Ví dụ: 'ETIMEDOUT' hoặc 'ECONNREFUSED'
+    });
 
 cloudinary.config({
     cloud_name: 'CLOUDINARY_CLOUD_NAME',
@@ -457,7 +472,6 @@ app.get('/api/categories', async (req, res) => {
         const [rows] = await pool.execute('SELECT category_id, category_name, category_icon FROM Category');
         res.json(rows);
     } catch (err) {
-        console.log(host)
         res.status(500).json({ error: err.message });
     }
 });
