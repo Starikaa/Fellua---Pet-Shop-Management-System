@@ -370,21 +370,35 @@ app.put('/api/admin/categories/:id', async (req, res) => {
 
 app.post('/api/admin/ppc', upload.single('banner'), async (req, res) => {
     try {
-        const { creatorId, campaignName, budget, cpc, productId } = req.body;
+        const creatorId = Number(req.body.creatorId);
+        const productId = Number(req.body.productId);
+        const budget = Number(req.body.budget);
+        const cpc = Number(req.body.cpc);
+        const { campaignName } = req.body;
+        
+        // Link ảnh từ Cloudinary
         const imageUrl = req.file ? req.file.path : null;
 
-        // 1. Lưu chiến dịch
+        console.log("Đang tạo chiến dịch cho SP ID:", productId);
+
+        // Chèn vào bảng PCC_Campaign
         await pool.execute(
             `INSERT INTO PCC_Campaign (creator_id, product_id, campaign_name, budget, cost_per_click, banner_url, status, num_of_clicks)
              VALUES (?, ?, ?, ?, ?, ?, 'Active', 0)`,
             [creatorId, productId, campaignName, budget, cpc, imageUrl]
         );
 
-        // 2. Giảm giá sản phẩm
-        await pool.execute('UPDATE Product SET price = price - ? WHERE product_id = ?', [cpc, productId]);
+        // Cập nhật giảm giá sản phẩm
+        await pool.execute(
+            'UPDATE Product SET price = price - ? WHERE product_id = ?', 
+            [cpc, productId]
+        );
 
-        res.json({ message: "Kích hoạt quảng cáo thành công!" });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        res.json({ message: "Kích hoạt quảng cáo thành công!", imageUrl });
+    } catch (err) { 
+        console.error("LỖI PPC POST:", err.message);
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.put('/api/admin/ppc/:id', upload.single('banner'), async (req, res) => {
