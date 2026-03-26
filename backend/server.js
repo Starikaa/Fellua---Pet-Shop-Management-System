@@ -48,6 +48,12 @@ pool.getConnection()
         console.error("Chi tiết lỗi:", err.code); // Ví dụ: 'ETIMEDOUT' hoặc 'ECONNREFUSED'
     });
 
+console.log("--- KIỂM TRA BIẾN CLOUDINARY ---");
+console.log("CLOUD_NAME:", process.env.CLOUDINARY_CLOUD_NAME ? "Đã nhận ✅" : "TRỐNG ❌");
+console.log("API_KEY:", process.env.CLOUDINARY_API_KEY ? "Đã nhận ✅" : "TRỐNG ❌");
+const secret = process.env.CLOUDINARY_API_SECRET;
+console.log("API_SECRET:", secret ? `***${secret.slice(-4)} ✅` : "TRỐNG ❌");
+
 cloudinary.config({
     cloud_name: 'CLOUDINARY_CLOUD_NAME',
     api_key: 'CLOUDINARY_API_KEY',
