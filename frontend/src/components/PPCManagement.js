@@ -32,39 +32,22 @@ function PPCManagement({ user, onBack }) {
     const handleCreatePPC = async (e) => {
     e.preventDefault();
     
-    // 1. Kiểm tra an toàn trước khi gửi
-    if (!user || !user.user_id) {
-        alert("Lỗi: Không tìm thấy thông tin Admin. Vui lòng đăng nhập lại!");
-        return;
-    }
-
-    const data = new FormData();
-    // Ép kiểu Number ngay tại đây để chắc chắn
-    data.append('creatorId', Number(user.user_id));
-    data.append('productId', Number(formData.productId));
-    data.append('campaignName', formData.name);
-    data.append('budget', Number(formData.budget));
-    data.append('cpc', Number(formData.cpc));
-    
-    // Kiểm tra có banner không
-    if (formData.banner) {
-        data.append('banner', formData.banner);
-    }
+    const dataJSON = {
+        creatorId: Number(user.user_id),
+        productId: Number(formData.productId),
+        campaignName: formData.name,
+        budget: Number(formData.budget),
+        cpc: Number(formData.cpc)
+    };
 
     try {
-        console.log(" Đang gửi data:", Object.fromEntries(data)); 
-        
-        await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/ppc`, data, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        await axios.post(`${process.env.REACT_APP_API_URL}/api/admin/ppc`, dataJSON);
 
-        alert(" Tạo chiến dịch thành công!");
+        alert("Tạo chiến dịch thành công!");
         setShowAddForm(false); 
         fetchCampaigns();
     } catch (err) {
-        console.error(" Lỗi Frontend:", err);
-        const serverError = err.response?.data?.detail || err.response?.data?.error || "Lỗi không xác định";
-        alert(" Lỗi tạo chiến dịch: " + serverError);
+        alert("Lỗi: " + (err.response?.data?.error || "Lỗi kết nối"));
     }
 };
 
