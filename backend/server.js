@@ -735,15 +735,15 @@ app.post('/api/chat', async (req, res) => {
             });
         }
         if (role !== 'ADM') {
-            const checkLimit = await pool.request()
-                .input('userId', sql.Int, userId)
-                .query('SELECT dbo.fn_GetTodayChatCount(@userId) AS todayCount');
+            const [rows] = await pool.execute(
+            `SELECT COUNT(*) AS todayCount 
+             FROM Chat_History 
+             WHERE user_id = ? AND DATE(chat_time) = CURDATE()`, [userId]);
 
-            const todayCount = checkLimit.recordset[0].todayCount;
+        const todayCount = rows[0].todayCount;
 
-            if (todayCount >= 15) {
-                return res.status(403).json({
-                    reply: "Chủ nhân ơi, hôm nay bạn đã hỏi Fellua 15 câu rồi. Hãy nghỉ ngơi và quay lại vào ngày mai nhé! 🐾"
+        if (todayCount >= 15) {
+            return res.status(429).json({ message: "Chủ nhân ơi, hôm nay bạn đã hỏi Fellua 15 câu rồi. Hãy nghỉ ngơi và quay lại vào ngày mai nhé! 🐾"
                 });
             }
         }
