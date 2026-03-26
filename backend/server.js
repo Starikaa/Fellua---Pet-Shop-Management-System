@@ -401,14 +401,13 @@ app.post('/api/admin/ppc', upload.single('banner'), async (req, res) => {
         res.json({ message: "Kích hoạt quảng cáo thành công!", campaignId: result.insertId });
 
     } catch (err) { 
-        console.error(" LỖI SQL PPC CHI TIẾT:");
-        console.error("- Message:", err.message);
-        console.error("- Code:", err.code);
-        
+        // Dùng JSON.stringify để ép nó hiện ra chữ thay vì hiện [object Object]
+        console.error(" LỖI SQL PPC CHI TIẾT:", JSON.stringify(err, null, 2));
+        console.error("- Thông điệp lỗi:", err.message); 
+    
         res.status(500).json({ 
             error: "Lỗi hệ thống", 
-            detail: err.message,
-            sqlCode: err.code 
+            detail: err.message 
         }); 
     }
 });
