@@ -11,11 +11,6 @@ const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 const app = express();
-app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    if (Object.keys(req.body).length) console.log("Body:", req.body);
-    next();
-});
 
 app.use(cors({
     origin: '*', 
