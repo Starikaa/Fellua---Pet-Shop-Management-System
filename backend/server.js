@@ -373,7 +373,6 @@ app.post('/api/admin/ppc', upload.single('banner'), async (req, res) => {
         // Lấy link ảnh từ Cloudinary sau khi upload thành công
         const imageUrl = req.file ? req.file.path : null;
 
-        let pool = await sql.connect(dbConfig);
 
         // 1. Lưu chiến dịch (Sửa imageUrl đúng với biến đã khai báo)
         await pool.execute(`
