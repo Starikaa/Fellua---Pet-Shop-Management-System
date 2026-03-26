@@ -108,14 +108,11 @@ app.put('/api/admin/users/role', async (req, res) => {
         if (roleId === 'ADM') {
             return res.status(403).json({ error: "Việc cấp quyền Quản trị viên mới bị nghiêm cấm!" });
         }
-
-        // KIỂM TRA: Không cho phép hạ quyền Admin hiện có
-        const checkAdmin = await pool.execute('UPDATE Users SET role_id = ? WHERE user_id = ?', [roleId, userId]);
-
-        if (checkAdmin.recordset[0]?.role_id === 'ADM') {
+        const [checkAdmin] = await pool.execute('SELECT role_id FROM Users WHERE user_id = ?', [userId]);
+        if (checkAdmin[0]?.role_id === 'ADM') {
             return res.status(403).json({ error: "Không thể thay đổi quyền hạn của tài khoản Quản trị viên!" });
         }
-        await pool.execute('UPDATE Users SET role_id = @roleId WHERE user_id = ?', [userID]);
+        await pool.execute('UPDATE Users SET role_id = ? WHERE user_id = ?', [roleId, userId]);
         res.json({ message: "Cập nhật quyền thành công" });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -144,34 +141,21 @@ app.put('/api/user/update', async (req, res) => {
 // Xóa sản phẩm (C10)
 app.delete('/api/admin/products/:id', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
         const productId = req.params.id;
-
-        // 1. Kiểm tra xem sản phẩm có đang trong chiến dịch quảng cáo không
-        const ppcCheck = await pool.execute('SELECT campaign_id FROM PCC_Campaign WHERE product_id = ?', [productId]);
-
-        if (ppcCheck.recordset.length > 0) {
-            return res.status(400).json({
-                error: "Không thể xóa! Sản phẩm này đang được sử dụng trong một chiến dịch quảng cáo PPC. Vui lòng xóa quảng cáo trước."
-            });
+        // 1. Check quảng cáo
+        const [ppcCheck] = await pool.execute('SELECT campaign_id FROM PCC_Campaign WHERE product_id = ?', [productId]);
+        if (ppcCheck.length > 0) {
+            return res.status(400).json({ error: "Không thể xóa! Sản phẩm đang chạy quảng cáo PPC." });
         }
-
-        // 2. Kiểm tra xem sản phẩm đã có đơn hàng chưa
-        const orderCheck = await pool.execute('SELECT order_id FROM Order_Item WHERE product_id = ?', [productId]);
-
-        if (orderCheck.recordset.length > 0) {
-            return res.status(400).json({
-                error: "Không thể xóa vĩnh viễn! Sản phẩm này đã có lịch sử giao dịch. Hãy cập nhật số lượng về 0 thay vì xóa."
-            });
+        // 2. Check đơn hàng
+        const [orderCheck] = await pool.execute('SELECT order_id FROM Order_Item WHERE product_id = ?', [productId]);
+        if (orderCheck.length > 0) {
+            return res.status(400).json({ error: "Sản phẩm đã có lịch sử giao dịch, không thể xóa!" });
         }
-
-        // 3. Nếu không vướng ràng buộc nào, thực hiện xóa
+        // 3. Thực hiện xóa
         await pool.execute('DELETE FROM Product WHERE product_id = ?', [productId]);
-
         res.json({ message: "Đã xóa sản phẩm thành công!" });
-    } catch (err) {
-        res.status(500).json({ error: "Lỗi hệ thống khi xóa: " + err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // Sửa thông tin sản phẩm (C10)
@@ -729,26 +713,14 @@ app.get('/api/products', async (req, res) => {
 // Lấy chi tiết sản phẩm (C05)
 app.get('/api/products/:id', async (req, res) => {
     try {
-        let pool = await sql.connect(dbConfig);
-        let result = await pool.request()
-            .input('id', sql.Int, req.params.id)
-            .query(`
-                SELECT p.*, 
-                       ppc.cost_per_click as discount_amount,
-                       ppc.budget,
-                       ppc.num_of_clicks,
-                       ppc.status as ppc_status,
-                       -- Tính số lượng tối đa có thể giảm giá dựa trên ngân sách còn lại
-                       CASE 
-                         WHEN ppc.status = 'Active' THEN 
-                            FLOOR((ppc.budget - (ppc.num_of_clicks * ppc.cost_per_click)) / ppc.cost_per_click)
-                         ELSE 0 
-                       END as max_discount_qty
-                FROM Product p
-                LEFT JOIN PCC_Campaign ppc ON p.product_id = ppc.product_id AND ppc.status = 'Active'
-                WHERE p.product_id = @id
-            `);
-        res.json(result.recordset[0]);
+        const [rows] = await pool.execute(`
+            SELECT p.*, ppc.cost_per_click as discount_amount, ppc.budget, ppc.num_of_clicks, ppc.status as ppc_status,
+                   CASE WHEN ppc.status = 'Active' THEN FLOOR((ppc.budget - (ppc.num_of_clicks * ppc.cost_per_click)) / ppc.cost_per_click) ELSE 0 END as max_discount_qty
+            FROM Product p
+            LEFT JOIN PCC_Campaign ppc ON p.product_id = ppc.product_id AND ppc.status = 'Active'
+            WHERE p.product_id = ?
+        `, [req.params.id]);
+        res.json(rows[0]); 
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -811,17 +783,10 @@ app.post('/api/chat', async (req, res) => {
                 });
             }
         }
-        const productsResult = await pool.request().query(`
-            SELECT 
-                p.product_name, 
-                p.price, 
-                p.num_product, 
-                p.detail_product, 
-                c.category_name,
-                pcc.cost_per_click AS discount_amount,
-                pcc.status AS pcc_status,
-                -- Tính toán số suất ưu đãi còn lại dựa trên ngân sách và số lượt đã dùng
-                FLOOR((pcc.budget - (pcc.num_of_clicks * pcc.cost_per_click)) / pcc.cost_per_click) AS remaining_discount_qty
+        const [productsResult] = await pool.execute(`
+            SELECT p.product_name, p.price, p.num_product, p.detail_product, c.category_name,
+                   pcc.cost_per_click AS discount_amount, pcc.status AS pcc_status,
+                   FLOOR((pcc.budget - (pcc.num_of_clicks * pcc.cost_per_click)) / pcc.cost_per_click) AS remaining_discount_qty
             FROM Product p 
             JOIN Category c ON p.category_id = c.category_id 
             LEFT JOIN PCC_Campaign pcc ON p.product_id = pcc.product_id AND pcc.status = 'Active'
