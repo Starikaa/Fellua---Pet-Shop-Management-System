@@ -19,7 +19,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// CẤU HÌNH KẾT NỐI MYSQL (TiDB Cloud)
 const dbConfig = {
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -32,27 +31,6 @@ const dbConfig = {
     }
 };
 const pool = mysql.createPool(dbConfig);
-// TEST KẾT NỐI NGAY KHI START SERVER
-console.log("--- KIỂM TRA BIẾN MÔI TRƯỜNG ---");
-console.log("DB_HOST:", process.env.DB_HOST ? "Đã nhận ✅" : "TRỐNG ❌");
-console.log("DB_NAME:", process.env.DB_NAME);
-console.log("DB_PORT:", process.env.DB_PORT);
-
-pool.getConnection()
-    .then(connection => {
-        console.log("✅ KẾT NỐI TIDB THÀNH CÔNG! ID kết nối:", connection.threadId);
-        connection.release();
-    })
-    .catch(err => {
-        console.error("❌ THẤT BẠI KHI KẾT NỐI TIDB:", err.message);
-        console.error("Chi tiết lỗi:", err.code); // Ví dụ: 'ETIMEDOUT' hoặc 'ECONNREFUSED'
-    });
-
-console.log("--- KIỂM TRA BIẾN CLOUDINARY ---");
-console.log("CLOUD_NAME:", process.env.CLOUDINARY_CLOUD_NAME ? "Đã nhận ✅" : "TRỐNG ❌");
-console.log("API_KEY:", process.env.CLOUDINARY_API_KEY ? "Đã nhận ✅" : "TRỐNG ❌");
-const secret = process.env.CLOUDINARY_API_SECRET;
-console.log("API_SECRET:", secret ? `***${secret.slice(-4)} ✅` : "TRỐNG ❌");
 
 cloudinary.config({
     cloud_name: 'CLOUDINARY_CLOUD_NAME',
@@ -373,37 +351,40 @@ app.put('/api/admin/categories/:id', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/admin/ppc', upload.single('banner'), async (req, res) => {
-    try {
-        // Lấy data từ req.body 
-        const creatorId = Number(req.body.creatorId);
-        const productId = Number(req.body.productId);
-        const budget = Number(req.body.budget);
-        const cpc = Number(req.body.cpc);
-        const { campaignName } = req.body;
-        
-        // Đường dẫn ảnh trả về từ Cloudinary
-        const imageUrl = req.file ? req.file.path : null;
-
-        if (!imageUrl) {
-            return res.status(400).json({ error: "Vui lòng tải lên banner quảng cáo!" });
+app.post('/api/admin/ppc', (req, res) => {
+    // 1. Chạy upload trước để lấy file và body
+    upload.single('banner')(req, res, async (err) => {
+        if (err) {
+            console.error("LỖI TẢI ẢNH:", err);
+            return res.status(500).json({ error: "Cloudinary từ chối ảnh: " + err.message });
         }
 
-        // 1. Chèn chiến dịch vào DB
-        const [result] = await pool.execute(
-            `INSERT INTO PCC_Campaign (creator_id, product_id, campaign_name, budget, cost_per_click, banner_url, status, num_of_clicks)
-             VALUES (?, ?, ?, ?, ?, ?, 'Active', 0)`,
-            [creatorId, productId, campaignName, budget, cpc, imageUrl]
-        );
+        try {
+            // 2. Sau khi upload xong, req.body mới có dữ liệu
+            const { campaignName, budget, cpc, productId, creatorId } = req.body;
+            const imageUrl = req.file ? req.file.path : null;
 
-        // 2. Giảm giá sản phẩm 
-        await pool.execute('UPDATE Product SET price = price - ? WHERE product_id = ?', [cpc, productId]);
+            console.log("Data nhận được sau khi upload:", req.body);
 
-        res.json({ message: "Kích hoạt quảng cáo thành công!", imageUrl });
-    } catch (err) {
-        console.error("Lỗi PPC:", err.message);
-        res.status(500).json({ error: "Lỗi hệ thống: " + err.message });
-    }
+            if (!imageUrl) return res.status(400).json({ error: "Không nhận được ảnh banner!" });
+
+            // 3. Chèn DB
+            const [result] = await pool.execute(
+                `INSERT INTO PCC_Campaign (creator_id, product_id, campaign_name, budget, cost_per_click, banner_url, status, num_of_clicks)
+                 VALUES (?, ?, ?, ?, ?, ?, 'Active', 0)`,
+                [Number(creatorId), Number(productId), campaignName, Number(budget), Number(cpc), imageUrl]
+            );
+
+            // 4. Update giá sản phẩm
+            await pool.execute('UPDATE Product SET price = price - ? WHERE product_id = ?', [Number(cpc), Number(productId)]);
+
+            res.json({ message: "Kích hoạt quảng cáo thành công!", imageUrl });
+
+        } catch (dbErr) {
+            console.error("LỖI DATABASE:", dbErr.message);
+            res.status(500).json({ error: "Lỗi lưu DB: " + dbErr.message });
+        }
+    });
 });
 app.put('/api/admin/ppc/:id', upload.single('banner'), async (req, res) => {
     try {
