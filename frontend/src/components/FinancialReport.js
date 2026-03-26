@@ -16,7 +16,7 @@ function FinancialReport({ onBack }) {
     });
     const fetchReport = async () => {
         try {
-            const res = await axios.get(`http://localhost:5000/api/admin/reports/${dateFilter.month}/${dateFilter.year}`);
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/admin/reports/${dateFilter.month}/${dateFilter.year}`);
             setReportData(res.data);
         } catch (err) { console.error("Lỗi tải báo cáo"); }
     };
@@ -42,7 +42,7 @@ function FinancialReport({ onBack }) {
     const handleGetAIAnalysis = async () => {
         setLoadingAI(true);
         try {
-            const res = await axios.get('http://localhost:5000/api/admin/ai-report');
+            const res = await axios.get(`${process.env.REACT_APP_API_URL}/api/admin/ai-report`);
             setAiAnalysis(res.data.analysis);
         } catch (err) {
             alert("Không thể kết nối với trí tuệ nhân tạo Fellua lúc này.");
