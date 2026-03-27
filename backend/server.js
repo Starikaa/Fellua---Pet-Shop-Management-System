@@ -589,7 +589,7 @@ app.post('/api/chat', async (req, res) => {
             WHERE p.num_product > 0
         `);
 
-        const productContext = productsResult.recordset.map(p => {
+        const productContext = productsResult.map(p => {
             let info = `- ${p.product_name} (${p.category_name}): `;
             info += `Trong kho còn: ${p.num_product} sản phẩm. `;
 
@@ -602,7 +602,6 @@ app.post('/api/chat', async (req, res) => {
             }
             return info + `Mô tả: ${p.detail_product}`;
         }).join('\n');
-        console.log("API_KEY:", `process.env.GEMINI_API_KEY`);
         const model = genAI.getGenerativeModel({
             model: "gemini-2.5-flash",
             systemInstruction: `Bạn là Fellua - Quản gia thông minh của cửa hàng thú cưng Fellua. 
