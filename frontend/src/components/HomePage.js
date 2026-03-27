@@ -75,9 +75,11 @@ function HomePage({ products, categories, onProductClick, onCategorySelect, acti
                                             )}
                                         </div>
                                         <div className="price-box">
-                                                <span className="current-price">{currentPrice.toLocaleString()}đ</span>
-                                            {discount > 0 && (
-                                                <span className="old-price">{originalPrice.toLocaleString()}đ</span>
+                                            <span className="current-price">{Math.floor(product.price).toLocaleString()}đ</span>
+                                            {Number(product.discount_amount) > 0 && (
+                                                <span className="old-price">
+                                                    {(Math.floor(product.price) + Math.floor(product.discount_amount)).toLocaleString()}đ
+                                                </span>
                                             )}
                                         </div>
                                         <button className="view-detail">Xem chi tiết</button>
