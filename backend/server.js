@@ -656,10 +656,8 @@ app.get('/api/admin/ai-report', async (req, res) => {
 
         const reportData = { revenue: revenueRows, campaigns: pccRows, feedbacks: feedbackRows };
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        const [adminRows] = await pool.execute(
-            "SELECT full_name FROM Users WHERE role_id = 'ADM' LIMIT 1"
-        );
-        const adminName = adminRows[0]?.full_name || "Quản trị viên";
+        const [adminRows] = await pool.execute("SELECT full_name FROM Users WHERE role_id = 'ADM' LIMIT 1");
+        const adminName = adminRows[0]?.full_name || "Nguyễn Minh Chiến"; 
         const today = new Date().toLocaleDateString('vi-VN');
         const prompt = `Bạn là một chuyên gia phân tích dữ liệu kinh doanh cao cấp. Hãy dựa vào số liệu thực tế sau đây từ cửa hàng thú cưng Fellua để viết một báo cáo tóm tắt cho chủ cửa hàng:
         Hôm nay là ngày ${today}.
