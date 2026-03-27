@@ -25,7 +25,13 @@ function FinancialReport({ onBack }) {
 
     const exportPDF = () => {
         const doc = new jsPDF();
-        doc.text(`BAO CAO TAI CHINH FELLUA - THANG ${dateFilter.month}/${dateFilter.year}`, 20, 20);
+        const admin = reportData?.adminName || "Nguyen Minh Chien";
+        const date = reportData?.reportDate || new Date().toLocaleDateString('vi-VN');
+        doc.setFontSize(18);
+        doc.text("BAO CAO TAI CHINH CUA HANG FELLUA", 20, 20);
+        doc.setFontSize(12);
+        doc.text(`Chu cua hang: ${admin}`, 20, 30);
+        doc.text(`Ngay lap: ${date}`, 20, 38);
         autoTable(doc, {
             head: [['Chi tieu', 'Gia tri']],
             body: [
@@ -73,9 +79,10 @@ function FinancialReport({ onBack }) {
             </div>
 
             <h2>Báo cáo Tài chính & Chiến lược AI</h2>
-            <p style={{ color: '#666', marginBottom: '20px' }}>
-                📅 Ngày lập báo cáo: {new Date().toLocaleDateString('vi-VN')} | Người lập: Nguyễn Minh Chiến
-            </p>
+            <div style={{ marginBottom: '20px', fontSize: '14px', color: '#555', borderBottom: '1px solid #ddd', paddingBottom: '10px' }}>
+                <p>👤 <strong>Người lập:</strong> {reportData?.adminName || 'Đang tải...'}</p>
+                <p>📅 <strong>Ngày báo cáo:</strong> {reportData?.reportDate || new Date().toLocaleDateString('vi-VN')}</p>
+            </div>
             <div className="ai-trigger-section" style={{
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 padding: '30px',
