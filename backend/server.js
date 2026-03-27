@@ -661,7 +661,7 @@ app.get('/api/admin/ai-report', async (req, res) => {
         const today = new Date().toLocaleDateString('vi-VN');
         const prompt = `Bạn là một chuyên gia phân tích dữ liệu kinh doanh cao cấp. Hãy dựa vào số liệu thực tế sau đây từ cửa hàng thú cưng Fellua để viết một báo cáo tóm tắt cho chủ cửa hàng:
         Hôm nay là ngày ${today}.
-        Chủ cửa hàng là: ${adminName}.
+        Chủ cửa hàng là: ${adminName} (đừng có dùng đại từ trong lúc báo cáo, chỉ nhắc tên thôi).
         DỮ LIỆU DOANH THU:
         ${JSON.stringify(reportData.revenue)}
 
