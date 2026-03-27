@@ -80,7 +80,6 @@ function FinancialReport({ onBack }) {
 
             <h2>Báo cáo Tài chính & Chiến lược AI</h2>
             <div style={{ marginBottom: '20px', fontSize: '14px', color: '#555', borderBottom: '1px solid #ddd', paddingBottom: '10px' }}>
-                <p>👤 <strong>Người lập:</strong> {reportData?.adminName || 'Đang tải...'}</p>
                 <p>📅 <strong>Ngày báo cáo:</strong> {reportData?.reportDate || new Date().toLocaleDateString('vi-VN')}</p>
             </div>
             <div className="ai-trigger-section" style={{
