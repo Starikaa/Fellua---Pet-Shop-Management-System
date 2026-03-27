@@ -32,6 +32,8 @@ const dbConfig = {
 };
 const pool = mysql.createPool(dbConfig);
 
+console.log("API_KEY:", process.env.GEMINI_API_KEY);
+
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,   
