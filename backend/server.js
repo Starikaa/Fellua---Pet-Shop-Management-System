@@ -590,9 +590,10 @@ app.post('/api/chat', async (req, res) => {
         const productContext = productsResult.map(p => {
             let info = `- ${p.product_name} (${p.category_name}): `;
             info += `Trong kho còn: ${p.num_product} sản phẩm. `;
-
+            const currentPrice = Math.floor(p.price); 
+            const discount = Math.floor(p.discount_amount || 0);
             if (p.pcc_status === 'Active' && p.remaining_discount_qty > 0) {
-                const originalPrice = p.price + p.discount_amount;
+                const originalPrice = currentPrice + discount;
                 info += `ĐANG GIẢM GIÁ MẠNH! Giá ưu đãi: ${p.price.toLocaleString()}đ (Giá cũ: ${originalPrice.toLocaleString()}đ). `;
                 info += `CẢNH BÁO: Chỉ còn đúng ${p.remaining_discount_qty} suất giá rẻ cuối cùng! `;
             } else {
