@@ -73,7 +73,9 @@ function FinancialReport({ onBack }) {
             </div>
 
             <h2>Báo cáo Tài chính & Chiến lược AI</h2>
-
+            <p style={{ color: '#666', marginBottom: '20px' }}>
+                📅 Ngày lập báo cáo: {new Date().toLocaleDateString('vi-VN')} | Người lập: Nguyễn Minh Chiến
+            </p>
             <div className="ai-trigger-section" style={{
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 padding: '30px',
