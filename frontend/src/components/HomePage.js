@@ -19,6 +19,7 @@ function HomePage({ products, categories, onProductClick, onCategorySelect, acti
                             key={cat.category_id}
                             className={`cat-item ${activeCategory === cat.category_id ? 'active' : ''}`}
                             onClick={() => onCategorySelect(cat.category_id)}
+                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}
                         >
                             <div className="cat-icon">
                                 {/* Hiện icon từ DB, nếu DB trống mới hiện dấu chân */}
